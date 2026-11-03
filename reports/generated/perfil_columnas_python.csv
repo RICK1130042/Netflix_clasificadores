@@ -1,0 +1,16 @@
+variable,tipo_python,nulos,porcentaje_nulos,valores_unicos
+customer_id,str,0,0.0,5000
+age,int64,0,0.0,53
+gender,str,0,0.0,3
+subscription_type,str,0,0.0,3
+watch_hours,float64,0,0.0,2343
+last_login_days,int64,0,0.0,61
+region,str,0,0.0,6
+device,str,0,0.0,5
+monthly_fee,float64,0,0.0,3
+churned,int64,0,0.0,2
+payment_method,str,0,0.0,5
+number_of_profiles,int64,0,0.0,5
+avg_watch_time_per_day,float64,0,0.0,505
+favorite_genre,str,0,0.0,7
+segmento_inactividad,str,0,0.0,3

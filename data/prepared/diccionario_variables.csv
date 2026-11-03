@@ -1,0 +1,16 @@
+variable,tipo_python,rol,descripcion
+customer_id,string,identificador,Identificador de cliente; excluir del entrenamiento
+age,int64,predictora candidata,Edad del cliente
+gender,string,predictora candidata,Género declarado
+subscription_type,string,predictora candidata,Tipo de suscripción
+watch_hours,float64,predictora candidata,Horas de visualización; verificar ventana temporal
+last_login_days,int64,predictora candidata,Días desde el último inicio de sesión; verificar ventana temporal
+region,string,predictora candidata,Región
+device,string,predictora candidata,Dispositivo
+monthly_fee,float64,predictora candidata,Cuota mensual
+churned,int64,objetivo,Variable objetivo: 0 permanece; 1 cancela
+payment_method,string,predictora candidata,Método de pago
+number_of_profiles,int64,predictora candidata,Número de perfiles
+avg_watch_time_per_day,float64,predictora candidata,Tiempo medio diario; candidato a análisis de fuga/sobreajuste
+favorite_genre,string,predictora candidata,Género favorito de contenido
+segmento_inactividad,string,derivada descriptiva,"Derivada de last_login_days: 0-7, 8-30 o 31+ días"

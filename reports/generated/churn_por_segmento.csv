@@ -1,0 +1,25 @@
+variable,categoria,registros,tasa_churn_pct
+gender,Female,1711,51.08
+gender,Male,1654,50.0
+gender,Other,1635,49.79
+region,Africa,803,48.32
+region,Asia,841,50.65
+region,Europe,867,51.67
+region,North America,851,49.47
+region,Oceania,765,50.07
+region,South America,873,51.43
+subscription_type,Basic,1661,61.83
+subscription_type,Premium,1693,43.71
+subscription_type,Standard,1646,45.44
+payment_method,Credit Card,973,43.58
+payment_method,Crypto,995,59.7
+payment_method,Debit Card,1030,43.69
+payment_method,Gift Card,976,57.79
+payment_method,PayPal,1026,47.08
+favorite_genre,Action,697,52.37
+favorite_genre,Comedy,685,49.93
+favorite_genre,Documentary,729,50.75
+favorite_genre,Drama,731,52.26
+favorite_genre,Horror,713,51.47
+favorite_genre,Romance,725,48.28
+favorite_genre,Sci-Fi,720,47.08

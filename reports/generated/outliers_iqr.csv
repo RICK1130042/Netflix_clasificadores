@@ -1,0 +1,7 @@
+variable,regla,casos_senialados
+age,1.5 x IQR,0
+watch_hours,1.5 x IQR,238
+last_login_days,1.5 x IQR,0
+monthly_fee,1.5 x IQR,0
+number_of_profiles,1.5 x IQR,0
+avg_watch_time_per_day,1.5 x IQR,549

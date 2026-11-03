@@ -1,0 +1,32 @@
+{
+  "modelo": "XGBoost baseline",
+  "random_state": 42,
+  "train_n": 4000,
+  "test_n": 1000,
+  "features": [
+    "age",
+    "subscription_type",
+    "watch_hours",
+    "last_login_days",
+    "region",
+    "device",
+    "monthly_fee",
+    "payment_method",
+    "number_of_profiles"
+  ],
+  "accuracy": 0.983,
+  "precision_churn": 0.986,
+  "recall_churn": 0.9801192842942346,
+  "f1_churn": 0.9830508474576272,
+  "roc_auc": 0.9990639663027869,
+  "matriz_confusion": [
+    [
+      490,
+      7
+    ],
+    [
+      10,
+      493
+    ]
+  ]
+}
