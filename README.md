@@ -1,4 +1,4 @@
-# 🎬 Netflix | Customer Churn Analytics
+# 🎬 Netflix | Customer Churn Analytics Ricardo Villarreal
 
 ### 📊 Data Analytics & Machine Learning Project
 
