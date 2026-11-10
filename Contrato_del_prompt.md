@@ -1,9 +1,3 @@
----
-noteId: "d93284f0dca411f1aeaddf4d4d299677"
-tags: []
-
----
-
 # Netflix Customer Churn — Desarrollo del Dashboard
 
 ## 1. ¿Qué debe mostrar?
