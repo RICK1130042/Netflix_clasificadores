@@ -1,8 +1,3 @@
----
-noteId: "de9c53e0d8c511f1ba3e1d49b5ff63e1"
-tags: []
-
----
 
 # Netflix | Churn Analytics · Streamlit
 
