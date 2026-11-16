@@ -5,7 +5,7 @@
 **Proyecto:** Netflix — detección de patrones asociados con el abandono y apoyo a decisiones de retención.  
 **Referencia principal:** Anthropic, *The AI-native SDLC playbook*, Claude Academy, lecciones 1 (introducción), 8 (*Give Claude a feedback loop*), 9 (*Continuous evals in CI*) y 5 (*The CLAUDE.md*). Consulta: 15 de noviembre de 2026.
 
-## Resumen de investigación (extensión aproximada: dos cuartillas)
+## Resumen de investigación 
 
 ### 1. ¿En cuáles etapas ya usamos el asistente y en cuáles todavía no?
 

@@ -1,4 +1,12 @@
-# 🎬 Netflix | Customer Churn Analytics Ricardo Villarreal
+# 🎬 Netflix | Customer Churn Analytics Equipo 1
+
+- Gabriel Castro Rivas | A01666946
+- Itzel Mejía Moreno | A01666393
+- Juan Carlos Muñoz Flores | A01712391
+- Kerstin Carmina Meister González | A01612699
+- Paola Estefanía Alvarez Santoyo | A01654416
+- Ricardo Villarreal Bazán | A01666859
+
 
 ### 📊 Data Analytics & Machine Learning Project
 
