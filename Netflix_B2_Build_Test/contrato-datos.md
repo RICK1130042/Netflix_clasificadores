@@ -1,8 +1,4 @@
----
-noteId: "f10c0161e15d11f18255d32709769dd3"
-tags: []
 
----
 
 # Contrato de datos del dashboard Netflix — Build y Test (B2)
 

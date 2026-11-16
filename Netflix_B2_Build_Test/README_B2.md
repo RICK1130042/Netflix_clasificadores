@@ -1,8 +1,4 @@
----
-noteId: "f10c0163e15d11f18255d32709769dd3"
-tags: []
 
----
 
 ## ✅ Entregable B2 — Build y Test: contrato de datos del dashboard
 

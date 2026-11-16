@@ -1,12 +1,8 @@
----
-noteId: "f10c0165e15d11f18255d32709769dd3"
-tags: []
 
----
 
 # Evidencia individual de avance — Entregable 2
 
-**Persona:** Ricardo Villarreal (confirmar matrícula y compromiso que aparece en la hoja de concentración).  
+**Persona:** Ricardo Villarreal 
 **Fechas indicadas por el docente:** parte individual 13-nov-2026; partes de equipo 15-nov-2026.  
 **Estado:** plantilla de evidencia preparada, **pendiente de captura y commit reales**. No afirmar que se entregó a tiempo sin registro.
 

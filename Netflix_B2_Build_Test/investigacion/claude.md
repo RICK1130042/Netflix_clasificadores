@@ -1,8 +1,3 @@
----
-noteId: "f10c0162e15d11f18255d32709769dd3"
-tags: []
-
----
 
 # Investigación — El ciclo de desarrollo con asistentes de IA
 

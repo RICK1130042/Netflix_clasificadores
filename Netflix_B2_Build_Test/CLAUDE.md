@@ -1,8 +1,4 @@
----
-noteId: "f10bda50e15d11f18255d32709769dd3"
-tags: []
 
----
 
 # Guía breve para asistentes de IA — Netflix churn
 

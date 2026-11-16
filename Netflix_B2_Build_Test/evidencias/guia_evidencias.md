@@ -1,8 +1,4 @@
----
-noteId: "f10c0160e15d11f18255d32709769dd3"
-tags: []
 
----
 
 # Lista de evidencias reales para la rúbrica
 
