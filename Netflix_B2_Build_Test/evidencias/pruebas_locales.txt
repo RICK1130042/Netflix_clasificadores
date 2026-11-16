@@ -1,0 +1,40 @@
+test_agregados_siguen_siendo_numericos (test_validacion_datos.ContratoDatosTests.test_agregados_siguen_siendo_numericos) ... ok
+test_ausencia_opcional_es_nulo_no_cero (test_validacion_datos.ContratoDatosTests.test_ausencia_opcional_es_nulo_no_cero) ... ok
+test_cero_es_un_valor_verdadero (test_validacion_datos.ContratoDatosTests.test_cero_es_un_valor_verdadero) ... ok
+test_churn_fuera_de_dominio_falla (test_validacion_datos.ContratoDatosTests.test_churn_fuera_de_dominio_falla) ... ok
+test_columna_faltante_falla (test_validacion_datos.ContratoDatosTests.test_columna_faltante_falla) ... ok
+test_entero_fraccionario_falla (test_validacion_datos.ContratoDatosTests.test_entero_fraccionario_falla) ... ok
+test_error_excel_bloquea (test_validacion_datos.ContratoDatosTests.test_error_excel_bloquea) ... ok
+test_ids_repetidos_fallan (test_validacion_datos.ContratoDatosTests.test_ids_repetidos_fallan) ... ok
+test_moneda_negativa_falla (test_validacion_datos.ContratoDatosTests.test_moneda_negativa_falla) ... ok
+test_nulo_critico_no_se_convierte_a_cero (test_validacion_datos.ContratoDatosTests.test_nulo_critico_no_se_convierte_a_cero) ... ok
+test_numero_con_texto_bloquea (test_validacion_datos.ContratoDatosTests.test_numero_con_texto_bloquea) ... ok
+test_segmento_derivado_incorrecto_falla (test_validacion_datos.ContratoDatosTests.test_segmento_derivado_incorrecto_falla) ... ok
+test_valido_convierte_todas_las_columnas_numericas (test_validacion_datos.ContratoDatosTests.test_valido_convierte_todas_las_columnas_numericas) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.421s
+
+OK
+               Columna Tipo esperado Tipo encontrado Nulos Estado
+           customer_id         texto          string     0     OK
+                   age        entero           int64     0     OK
+                gender         texto          string     0     OK
+     subscription_type         texto          string     0     OK
+           watch_hours       decimal         float64     0     OK
+       last_login_days        entero           int64     0     OK
+                region         texto          string     0     OK
+                device         texto          string     0     OK
+           monthly_fee       decimal         float64     0  ERROR
+               churned        entero           int64     0     OK
+        payment_method         texto          string     0     OK
+    number_of_profiles        entero           int64     0     OK
+avg_watch_time_per_day       decimal         float64     0     OK
+        favorite_genre         texto          string     0     OK
+     CONTRATO COMPLETO   sin errores           falló     —  ERROR
+
+ERROR: monthly_fee: 1 valor(es) no numéricos: ['8.99 ERROR']
+CONTRATO ROTO: se detiene el pipeline y no debe dibujarse el tablero.
+
+DEMO APROBADA: el validador SÍ rechazó el CSV corrupto con código 1.
+Sintaxis Python: OK

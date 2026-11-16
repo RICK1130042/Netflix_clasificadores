@@ -1,0 +1,17 @@
+---
+noteId: "f10c0166e15d11f18255d32709769dd3"
+tags: []
+
+---
+
+# Idea individual para el dashboard — Ricardo (sustituir nombre de archivo por matrícula)
+
+## Propuesta: priorizador transparente de campañas de retención
+
+**1. ¿Qué cambiaría o agregaría?** Incorporaría una pantalla llamada **«¿Qué segmento contactar primero?»** que muestre, por tipo de suscripción y tramo de inactividad, el número de usuarios, su tasa observada de abandono, la calidad del dato y una simulación separada del impacto potencial de una campaña. La vista tendría un semáforo de calidad: si una columna del contrato falla, las cifras no se presentarían. Las tasas históricas aparecerían como **DATO/CALCULADO**, mientras que los contactos supuestos y los resultados hipotéticos aparecerían como **SIMULADO**. Añadiría una nota visible: asociación con abandono no demuestra que contactar a un cliente evite su cancelación.
+
+**2. ¿Para quién sirve y qué decisión facilita?** Para **Andrés, analista de CRM**, personaje del diseño del equipo. Su decisión sería **qué segmento revisar y priorizar para una campaña**, considerando volumen y señales de inactividad, antes de utilizar recursos de contacto. También permitiría que una responsable de operación identifique cuándo detener esa recomendación por problemas de calidad. No mostraría nombres ni `customer_id` en la pantalla principal: el objetivo es decidir por segmentos, no exponer usuarios.
+
+**3. ¿Qué habría que hacer para lograrlo?** Primero, usar el CSV validado para agrupar `subscription_type` y `last_login_days` en tramos definidos y calcular conteos y tasas, comprobando que nunca se divida entre cero. Segundo, agregar filtros y ordenamiento numérico y mostrar al lado de cada cifra su procedencia. Tercero, incluir un panel opcional de escenarios con supuestos editables —capacidad de contacto, respuesta esperada y costo por intervención— que nunca se mezcle con el histórico. Finalmente, la pantalla exigiría revisión de responsables sobre temporalidad de las variables, costo real de falsos positivos/negativos y efectividad de campañas con grupo de control. **La propuesta sirve para orientar una decisión, no para afirmar que el modelo ya predice churn futuro o que una campaña funciona.**
+
+**Evidencia de esta idea:** `ideas/tu-matricula.md`. Renombrar a la matrícula real antes de subir y conservar la autoría individual.
