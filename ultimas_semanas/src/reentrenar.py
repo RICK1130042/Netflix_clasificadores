@@ -21,8 +21,8 @@ from sklearn.metrics import f1_score
 from sklearn.model_selection import train_test_split
 
 RAIZ = Path(__file__).resolve().parents[1]
-MODELO = RAIZ / "modelo_churn_netflix.joblib"
-ORIGINAL = RAIZ / "netflix_customer_churn.csv"
+MODELO = RAIZ.parent / "modelo_churn_netflix.joblib"
+ORIGINAL = RAIZ.parent / "netflix_customer_churn.csv"
 NUMERICAS = [
     "watch_hours", "last_login_days", "avg_watch_time_per_day", "number_of_profiles"
 ]
