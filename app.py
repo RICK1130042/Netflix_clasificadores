@@ -438,7 +438,8 @@ if MODEL_FILE.exists():
 
 ui.marca("CHURN ANALYTICS · MODELOS DE CLASIFICACIÓN")
 pagina = st.sidebar.radio("Navegación", [
-    "🏠 Resumen ejecutivo", "📊 Explorar clientes", "🤖 Comparar modelos", "🎯 Predecir abandono"
+    "🏠 Resumen ejecutivo", "📊 Explorar clientes", "🤖 Comparar modelos", "🎯 Predecir abandono",
+    "📣 Campañas de retención"
 ], label_visibility="collapsed")
 st.sidebar.divider()
 st.sidebar.caption(f"Dataset: {'disponible' if df is not None else 'sin cargar'}")
@@ -823,8 +824,274 @@ elif pagina == "🤖 Comparar modelos":
             
 
 
-# ─── 4. Predicción ───────────────────────────────────────────────────────────
-else:
+# ─── 4. Campañas de retención ────────────────────────────────────────────────
+elif pagina == "📣 Campañas de retención":
+    ui.encabezado_pagina(
+        "Campañas de retención",
+        "Convierte las señales de abandono en audiencias, acciones de CRM y pruebas controladas.",
+        etiqueta="Retention Intelligence",
+    )
+    st.caption("Señal de uso → modelo campeón → nivel de riesgo → campaña → medición")
+    st.info("Modo académico: el CSV contiene resultados históricos, no una lista verificada de "
+            "suscripciones activas. Las audiencias y campañas son simulaciones; no se envían "
+            "mensajes ni se conceden descuentos. Antes de operar se necesita una fotografía "
+            "de clientes activos anterior al abandono y un horizonte de predicción definido.")
+    if df is None:
+        st.warning("Carga netflix_customer_churn.csv para construir las audiencias.")
+        st.stop()
+
+    # Mismo modelo que el simulador; no entrenar con churned como variable de entrada.
+    try:
+        if bundle and "modelo" in bundle and "columnas" in bundle:
+            modelo_camp = bundle["modelo"]
+            columnas_camp = list(bundle["columnas"])
+            nombre_camp = bundle.get("nombre_modelo", "Modelo exportado")
+            origen_camp = "Modelo exportado por el notebook"
+        elif res is not None:
+            nombre_camp = res["ganador"]
+            modelo_camp = entrenar_para_dashboard(df)["modelos"][nombre_camp]
+            columnas_camp = COLUMNAS
+            origen_camp = "Modelo reconstruido con el CSV"
+        else:
+            st.warning("Se requiere el modelo exportado o los resultados del notebook.")
+            st.stop()
+        x_camp, _ = preparar_x(df)
+        # El dataset conserva el promedio observado, no el promedio reconstruido del simulador.
+        num_camp = df[NUMERICAS].apply(pd.to_numeric, errors="coerce")
+        validos = (np.isfinite(num_camp).all(axis=1)
+                   & num_camp["watch_hours"].ge(0)
+                   & num_camp["last_login_days"].ge(0)
+                   & num_camp["avg_watch_time_per_day"].between(0, 24)
+                   & num_camp["number_of_profiles"].between(1, 5)
+                   & df["subscription_type"].isin(PLANES))
+        if not validos.any():
+            st.warning("No hay registros que pasen los controles básicos de calidad.")
+            st.stop()
+        clases_camp = list(modelo_camp.classes_)
+        scores_camp = modelo_camp.predict_proba(x_camp.loc[validos, columnas_camp])[:, clases_camp.index(1)]
+        if not np.isfinite(scores_camp).all() or not ((scores_camp >= 0) & (scores_camp <= 1)).all():
+            raise ValueError("El modelo devolvió puntuaciones inválidas.")
+    except Exception as exc:
+        st.error(f"No se pudo preparar el motor de retención: {exc}")
+        st.stop()
+
+    camp = df_segmentado.loc[validos].copy()
+    camp["ID cliente"] = (camp["customer_id"].astype(str) if "customer_id" in camp.columns
+                          else camp.index.astype(str))
+    camp["Score"] = scores_camp
+    camp["Zona crítica"] = (camp["watch_hours"] < 5) & (camp["last_login_days"] > 30)
+    camp["Riesgo del modelo"] = np.select([camp["Score"] >= .60, camp["Score"] >= .30],
+                                         ["Alto", "Medio"], default="Bajo")
+    # La zona crítica se atiende aun si el score no alcanza 0.60 (regla de negocio de la presentación).
+    camp["Prioridad"] = np.where(camp["Zona crítica"], "Alto", camp["Riesgo del modelo"])
+    camp["Señal preventiva"] = camp["last_login_days"].between(15, 30)
+    camp["Pago por revisar"] = False
+    if "payment_method" in camp.columns:
+        pago = camp["payment_method"].fillna("").astype(str).str.lower()
+        camp["Pago por revisar"] = pago.str.contains(r"gift|crypto|regalo|cripto", regex=True)
+    camp["Campaña"] = np.select(
+        [camp["Prioridad"].eq("Alto"), camp["Prioridad"].eq("Medio") | camp["Señal preventiva"]],
+        ["Contacto prioritario", "Reactivación preventiva"], default="Seguimiento habitual")
+    camp["Acción propuesta"] = np.select(
+        [camp["Campaña"].eq("Contacto prioritario"), camp["Campaña"].eq("Reactivación preventiva")],
+        ["Contacto personalizado; evaluar pausa, cambio de plan o incentivo",
+         "Recomendar contenido y enviar recordatorio de reactivación"],
+        default="Comunicación habitual; monitorear actividad")
+    camp.loc[camp["Pago por revisar"], "Acción propuesta"] += "; facilitar renovación"
+    if "favorite_genre" in camp.columns:
+        genero = camp["favorite_genre"].fillna("").astype(str).str.strip()
+        personalizar = camp["Campaña"].eq("Reactivación preventiva") & genero.ne("")
+        camp.loc[personalizar, "Acción propuesta"] += " · Género: " + genero[personalizar]
+    camp["Mensualidad"] = (pd.to_numeric(camp["monthly_fee"], errors="coerce").where(lambda s: s >= 0)
+                           if "monthly_fee" in camp.columns else np.nan)
+    camp["Ingreso asociado ponderado"] = camp["Mensualidad"] * camp["Score"]
+    camp["Segmento"] = "Sin clúster disponible"
+    if clusters_disponibles:
+        mapa_camp = perfiles.set_index("cluster")["nombre"].to_dict()
+        camp["Segmento"] = camp["cluster"].map(mapa_camp).fillna("Sin clúster disponible")
+
+    st.caption(f"Motor: {nombre_camp} · {origen_camp}. Puntuaciones sin calibración adicional; "
+               "no son probabilidades temporales verificadas. No se usa churned para segmentar ni priorizar.")
+    st.markdown("**Reglas de activación del proyecto**")
+    r1, r2, r3 = st.columns(3)
+    with r1:
+        st.success("Bajo · score < 30 % · seguimiento")
+    with r2:
+        st.warning("Medio · 30 % ≤ score < 60 % · reactivar")
+    with r3:
+        st.error("Alto · score ≥ 60 % o zona crítica · intervenir")
+    st.caption("Zona crítica: menos de 5 h vistas y más de 30 días sin acceso. "
+               "Señal preventiva: 15–30 días sin acceso. Los límites son reglas operativas propuestas, "
+               "no umbrales optimizados de clasificación. El umbral binario de 0.50 del simulador no cambia.")
+
+    laura, andres, sofia, medicion = st.tabs([
+        "Laura · Gerencia", "Andrés · Campañas CRM", "Sofía · Calidad", "Medición · Prueba A/B"
+    ])
+    with laura:
+        ui.seccion("Cartera de retención y prioridades")
+        altos = camp[camp["Prioridad"].eq("Alto")]
+        medios = camp[camp["Prioridad"].eq("Medio")]
+        ingreso_alto = altos["Mensualidad"].sum(min_count=1)
+        a, b, c, d = st.columns(4)
+        a.metric("Clientes evaluados", f"{len(camp):,}")
+        b.metric("Prioridad alta", f"{len(altos):,}", f"{len(altos)/len(camp):.1%} de la muestra")
+        c.metric("Zona crítica", f"{int(camp['Zona crítica'].sum()):,}")
+        d.metric("Mensualidad asociada · alta", f"${ingreso_alto:,.2f}" if pd.notna(ingreso_alto) else "N/D")
+        st.caption("La mensualidad asociada no es pérdida observada ni ingreso retenido; moneda según dataset. "
+                   "No hay garantía de que los clientes estén activos hoy.")
+        l, r = st.columns(2)
+        with l:
+            dist = camp["Prioridad"].value_counts().reindex(["Bajo", "Medio", "Alto"], fill_value=0)
+            fig = px.bar(x=dist.index, y=dist.values, color=dist.index,
+                         color_discrete_map={"Bajo": VERDE, "Medio": "#F5A524", "Alto": ROJO},
+                         labels={"x": "Prioridad", "y": "Clientes"}, title="Clientes por prioridad de retención")
+            fig.update_layout(showlegend=False, height=330)
+            st.plotly_chart(fig, use_container_width=True, key="camp_prioridad")
+        with r:
+            resumen = camp.groupby("subscription_type", as_index=False).agg(
+                Clientes=("ID cliente", "size"),
+                Alta=("Prioridad", lambda s: s.eq("Alto").sum()),
+                Score_medio=("Score", "mean"),
+            )
+            resumen["Proporción alta"] = resumen["Alta"] / resumen["Clientes"]
+            fig = px.bar(resumen, x="subscription_type", y="Alta", text_auto=True,
+                         color_discrete_sequence=[ROJO], title="Prioridad alta por plan",
+                         labels={"subscription_type": "Plan", "Alta": "Clientes"})
+            fig.update_layout(height=330)
+            st.plotly_chart(fig, use_container_width=True, key="camp_plan")
+            st.dataframe(resumen.style.format({"Score_medio": "{:.1%}", "Proporción alta": "{:.1%}"}),
+                         hide_index=True, use_container_width=True)
+        if clusters_disponibles:
+            por_segmento = camp.groupby("Segmento", as_index=False).agg(
+                Clientes=("ID cliente", "size"), Alta=("Prioridad", lambda s: s.eq("Alto").sum()),
+                Score_medio=("Score", "mean"))
+            por_segmento["Proporción alta"] = por_segmento["Alta"] / por_segmento["Clientes"]
+            st.markdown("**Prioridad por clúster descriptivo**")
+            st.dataframe(por_segmento.style.format({"Score_medio": "{:.1%}", "Proporción alta": "{:.1%}"}),
+                         hide_index=True, use_container_width=True)
+        ui.seccion("Evaluar un incentivo · escenario hipotético")
+        st.write("Laura autoriza incentivos solo si el valor incremental esperado supera su costo.")
+        q1, q2, q3 = st.columns(3)
+        meses = q1.number_input("Meses de valor retenido", 1, 24, 3, key="camp_meses")
+        eficacia = q2.slider("Abandonos evitados entre quienes cancelarían (supuesto)", 0, 100, 20,
+                              key="camp_eficacia") / 100
+        descuento = q3.slider("Descuento por un mes (%)", 0, 100, 50, key="camp_descuento") / 100
+        costo_contacto = st.number_input("Costo por cliente contactado ($, misma moneda del dataset)",
+                                         min_value=0.0, value=0.0, step=.5, key="camp_contacto")
+        base_econ = altos.dropna(subset=["Mensualidad"]).copy()
+        base_econ["Valor esperado"] = (base_econ["Score"] * eficacia * meses * base_econ["Mensualidad"]
+                                        - descuento * base_econ["Mensualidad"] - costo_contacto)
+        viables = base_econ[base_econ["Valor esperado"] > 0]
+        if base_econ.empty:
+            st.info("No hay clientes de prioridad alta con mensualidad válida para evaluar incentivos.")
+        else:
+            e1, e2 = st.columns(2)
+            e1.metric("Incentivos potencialmente viables", f"{len(viables):,} de {len(base_econ):,}")
+            e2.metric("Valor incremental simulado · viables", f"${viables['Valor esperado'].sum():,.2f}")
+        st.caption("Fórmula ilustrativa: score × eficacia supuesta × meses × mensualidad − descuento de un mes "
+                   "− costo de contacto. Supone el descuento para todo cliente tratado; no estima margen, "
+                   "causalidad ni rentabilidad real. Requiere calibración y evidencia experimental.")
+
+    with andres:
+        ui.seccion("Diseñar una audiencia de campaña")
+        a, b, c = st.columns(3)
+        tipos_camp = a.multiselect("Tipo de campaña", ["Contacto prioritario", "Reactivación preventiva", "Seguimiento habitual"],
+                                   default=["Contacto prioritario", "Reactivación preventiva"], key="camp_tipos")
+        planes_camp = b.multiselect("Planes", sorted(camp["subscription_type"].unique()),
+                                    default=sorted(camp["subscription_type"].unique()), key="camp_planes")
+        segmentos_camp = c.multiselect("Segmentos", sorted(camp["Segmento"].unique()),
+                                       default=sorted(camp["Segmento"].unique()), key="camp_segmentos")
+        solo_critica = st.checkbox("Solo zona crítica", key="camp_critica")
+        seleccion = camp[camp["Campaña"].isin(tipos_camp) & camp["subscription_type"].isin(planes_camp)
+                         & camp["Segmento"].isin(segmentos_camp)].copy()
+        if solo_critica:
+            seleccion = seleccion[seleccion["Zona crítica"]].copy()
+        orden = st.radio("Orden de priorización", ["Riesgo", "Ingreso ponderado por riesgo"],
+                         horizontal=True, key="camp_orden")
+        seleccion["_prioridad"] = seleccion["Prioridad"].map({"Alto": 2, "Medio": 1, "Bajo": 0})
+        orden_col = "Score" if orden == "Riesgo" else "Ingreso asociado ponderado"
+        seleccion = seleccion.sort_values(["_prioridad", orden_col, "ID cliente"],
+                                          ascending=[False, False, True], na_position="last")
+        capacidad = st.number_input("Capacidad máxima de la audiencia (clientes)", min_value=1,
+                                     max_value=max(1, len(camp)), value=min(500, len(camp)), step=1, key="camp_capacidad")
+        audiencia = seleccion.head(int(capacidad)).copy()
+        k1, k2, k3 = st.columns(3)
+        k1.metric("Clientes elegibles", f"{len(seleccion):,}")
+        k2.metric("Audiencia seleccionada", f"{len(audiencia):,}")
+        k3.metric("Score promedio", f"{audiencia['Score'].mean():.1%}" if len(audiencia) else "N/D")
+        columnas_crm = ["ID cliente", "subscription_type", "Segmento", "last_login_days", "watch_hours",
+                        "Score", "Riesgo del modelo", "Zona crítica", "Prioridad", "Campaña", "Acción propuesta",
+                        "Mensualidad"]
+        if "payment_method" in audiencia.columns:
+            columnas_crm.append("payment_method")
+        tabla_crm = audiencia[columnas_crm].rename(columns={"subscription_type": "Plan", "last_login_days": "Días sin acceso",
+                                                              "watch_hours": "Horas vistas", "payment_method": "Método de pago"})
+        if audiencia.empty:
+            st.info("No hay clientes con los filtros seleccionados.")
+        else:
+            st.dataframe(tabla_crm.style.format({"Score": "{:.1%}", "Mensualidad": "{:.2f}", "Horas vistas": "{:.2f}"}, na_rep="N/D"),
+                         hide_index=True, use_container_width=True)
+            st.download_button("Exportar audiencia CRM (CSV)", tabla_crm.to_csv(index=False).encode("utf-8-sig"),
+                               file_name="audiencia_retencion.csv", mime="text/csv", key="camp_export")
+        st.caption("Los métodos de pago y el género favorito personalizan la intervención cuando existen; "
+                   "no son variables de entrada del campeón Python. El CSV exportado es una propuesta, no un envío.")
+
+    with sofia:
+        ui.seccion("Calidad y condiciones para activar retención")
+        a, b, c = st.columns(3)
+        a.metric("Registros descartados", f"{int((~validos).sum()):,}")
+        b.metric("Consumo diario > 24 h", f"{int(num_camp['avg_watch_time_per_day'].gt(24).sum()):,}")
+        c.metric("Mensualidades no disponibles", f"{int(camp['Mensualidad'].isna().sum()):,}")
+        st.write("Los registros con variables inválidas se excluyen de la audiencia, no del dashboard original.")
+        st.dataframe(pd.DataFrame({"Control": ["Variables numéricas finitas y en rango", "Plan reconocido", "Temporalidad y estado activo", "Calibración del score", "Drift y equidad"],
+                                   "Estado": ["Aplicado", "Aplicado", "Pendiente de validar con datos operativos", "Pendiente de evaluación independiente", "Requiere nuevas observaciones"]}),
+                     hide_index=True, use_container_width=True)
+        st.warning("No se puede comprobar con esta fotografía histórica si las variables fueron registradas "
+                   "antes del abandono. No lanzar campañas reales hasta verificar fechas, clientes activos, "
+                   "calidad, permisos de contacto y desempeño fuera de muestra.")
+        fig = px.histogram(camp, x="Score", color="Prioridad", nbins=25,
+                           color_discrete_map={"Bajo": VERDE, "Medio": "#F5A524", "Alto": ROJO},
+                           title="Distribución de puntuaciones del modelo (muestra histórica)")
+        fig.update_xaxes(tickformat=".0%", range=[0, 1])
+        st.plotly_chart(fig, use_container_width=True, key="camp_scores")
+
+    with medicion:
+        ui.seccion("Diseñar prueba controlada de retención")
+        st.write("La audiencia filtrada en la pestaña de Andrés se divide aleatoriamente en tratamiento y control. "
+                 "El tratamiento recibiría la campaña propuesta y el control la comunicación habitual.")
+        control_pct = st.slider("Porcentaje asignado al grupo control", 10, 50, 20, step=5, key="camp_control")
+        horizonte = st.number_input("Horizonte de seguimiento propuesto (días)", 7, 180, 30, key="camp_horizonte")
+        semilla = st.number_input("Semilla de aleatorización", min_value=0, max_value=2147483647, value=42, key="camp_semilla")
+        if len(audiencia) < 2 or not audiencia["ID cliente"].is_unique:
+            st.warning("Se requieren al menos dos clientes con identificadores únicos para crear ambos grupos.")
+        else:
+            experimento = tabla_crm.reset_index(drop=True).copy()
+            n_control = min(len(experimento) - 1, max(1, round(len(experimento) * control_pct / 100)))
+            rng = np.random.default_rng(int(semilla))
+            experimento["Grupo"] = "Tratamiento"
+            experimento.loc[rng.choice(len(experimento), size=n_control, replace=False), "Grupo"] = "Control"
+            experimento["Horizonte (días)"] = int(horizonte)
+            experimento.loc[experimento["Grupo"].eq("Control"), "Acción propuesta"] = "Comunicación habitual (control)"
+            a, b, c = st.columns(3)
+            a.metric("Tratamiento", f"{len(experimento)-n_control:,}")
+            b.metric("Control", f"{n_control:,}")
+            c.metric("Seguimiento", f"{horizonte} días")
+            st.dataframe(experimento.groupby("Grupo", as_index=False).agg(Clientes=("ID cliente", "size"),
+                                                                                        Score_medio=("Score", "mean"))
+                         .style.format({"Score_medio": "{:.1%}"}), hide_index=True, use_container_width=True)
+            st.download_button("Exportar asignación A/B (CSV)", experimento.to_csv(index=False).encode("utf-8-sig"),
+                               file_name="prueba_controlada_retencion.csv", mime="text/csv", key="camp_export_ab")
+        st.markdown("**Indicadores que deberán medirse al finalizar el piloto**")
+        st.dataframe(pd.DataFrame({"Indicador": ["Tasa de abandono por grupo", "Reducción absoluta del churn", "Ingreso neto incremental", "Costo por cliente retenido"],
+                                   "Cálculo": ["Cancelaciones / clientes asignados", "Churn control − churn tratamiento", "Diferencia de ingreso por cliente × tamaño tratado − costos", "Costo incremental / abandonos evitados estimados"],
+                                   "Estado": ["Pendiente de resultados reales"] * 4}), hide_index=True, use_container_width=True)
+        st.caption("La asignación es una simulación reproducible, no una campaña ejecutada. Antes de iniciar "
+                   "un piloto real, verificar elegibilidad, tamaño muestral, balance de grupos y fijar el horizonte. "
+                   "No usar churned histórico para atribuir eficacia a una intervención que nunca ocurrió.")
+
+
+# ─── 5. Predicción ───────────────────────────────────────────────────────────
+elif pagina == "🎯 Predecir abandono":
     ui.encabezado_pagina("Predecir abandono",
                          "Estima la probabilidad de que un cliente cancele (churned = 1), muestra su nivel "
                          "de riesgo y explica qué variables empujaron el resultado.",
