@@ -8,6 +8,8 @@ muestra los mismos resultados que el notebook:
     comparacion_modelos_churn.csv        métricas en el conjunto de prueba (20 %)
     importancia_variables_churn.csv      importancia por permutación del modelo ganador
     modelo_churn_netflix.joblib          modelo ganador ya entrenado
+    etiquetas_clusters.csv              asignaciones por cliente y coordenadas PC1/PC2
+    perfiles_clusters.csv               nombres de los seis clusters
 
 Ejecuta: streamlit run app.py
 """
@@ -45,6 +47,8 @@ MODEL_FILE = ROOT / "modelo_churn_netflix.joblib"
 CV_FILE = ROOT / "comparacion_validacion_cruzada.csv"
 TEST_FILE = ROOT / "comparacion_modelos_churn.csv"
 IMP_FILE = ROOT / "importancia_variables_churn.csv"
+CLUSTER_FILE = ROOT / "etiquetas_clusters.csv"
+PERFILES_FILE = ROOT / "perfiles_clusters.csv"
 
 NUMERICAS = ["watch_hours", "last_login_days", "avg_watch_time_per_day", "number_of_profiles"]
 PLANES = ["Basic", "Premium", "Standard"]
@@ -396,6 +400,33 @@ else:
         except Exception as exc:
             st.sidebar.error(f"CSV inválido: {exc}")
 
+# ─── Segmentación validada por Itzel ───
+perfiles = None
+df_segmentado = df
+clusters_disponibles = False
+if df is not None:
+    try:
+        etiquetas = leer_csv(str(CLUSTER_FILE), CLUSTER_FILE.stat().st_mtime_ns)
+        perfiles = leer_csv(str(PERFILES_FILE), PERFILES_FILE.stat().st_mtime_ns)
+        if not etiquetas["cluster"].isin(range(1, 7)).all():
+            raise ValueError("Etiquetas fuera del rango 1–6.")
+        if set(perfiles["cluster"]) != set(range(1, 7)) or not perfiles["cluster"].is_unique:
+            raise ValueError("Perfiles de clusters inválidos.")
+        if perfiles["nombre"].isna().any():
+            raise ValueError("Hay perfiles sin nombre.")
+        if etiquetas["customer_id"].isna().any() or df["customer_id"].isna().any():
+            raise ValueError("Identificadores faltantes.")
+        unido = df.drop(columns=["cluster", "PC1", "PC2"], errors="ignore").merge(
+            etiquetas[["customer_id", "cluster", "PC1", "PC2"]],
+            on="customer_id", how="left", validate="one_to_one"
+        )
+        if unido["cluster"].isna().any():
+            raise ValueError("Hay clientes sin asignación de cluster.")
+        df_segmentado = unido
+        clusters_disponibles = True
+    except Exception as exc:
+        st.sidebar.warning(f"Segmentación no disponible: {exc}")
+
 res = cargar_resultados()
 
 bundle = None
@@ -419,6 +450,28 @@ st.sidebar.caption("Fuente de métricas: notebook netflix_churned · prueba 80/2
 
 
 
+# ─── Selector global de segmentos ───
+df_filtrado = df_segmentado
+elegido = 0
+if pagina in ["🏠 Resumen ejecutivo", "📊 Explorar clientes"] and clusters_disponibles:
+    nombres = perfiles.set_index("cluster")["nombre"].to_dict()
+    ui.seccion("Segmentación de clientes")
+    elegido = st.segmented_control(
+        "Selecciona un segmento", options=list(range(7)),
+        format_func=lambda x: "Todos" if x == 0 else f"Clúster {x}",
+        default=0, key="cluster_global"
+    )
+    if elegido not in (None, 0):
+        df_filtrado = df_segmentado.loc[df_segmentado["cluster"] == elegido].copy()
+        st.markdown(f"**Perfil:** {nombres[elegido]}")
+    else:
+        st.caption("Mostrando todos los clientes.")
+    if df_filtrado.empty:
+        st.info("No hay clientes en el segmento seleccionado.")
+        st.stop()
+    st.caption("Segmentos según etiquetas_clusters.csv y perfiles_clusters.csv.")
+    st.divider()
+
 # ─── 1. Resumen ─────────────────────────────────────────────────────────────
 if pagina == "🏠 Resumen ejecutivo":
     ui.encabezado_pagina("Panorama del abandono",
@@ -432,11 +485,22 @@ if pagina == "🏠 Resumen ejecutivo":
     ganador, t_gan, cv_gan = res["ganador"], res["test_ganador"], res["cv_ganador"]
     meta_ok = "ok" if (t_gan["F1"] >= META_HIPOTESIS and t_gan["Recall"] >= META_HIPOTESIS) else "alerta"
     ui.fila_kpis([
-        ("Clientes analizados", f"{len(df):,}", "dataset completo de Kaggle"),
-        ("Tasa de abandono", pct(df["churned"].mean(), 1), f"{int(df['churned'].sum()):,} clientes cancelaron", "alerta"),
+        ("Clientes analizados", f"{len(df_filtrado):,}",
+         f"Clúster {elegido}" if elegido not in (None, 0) else "dataset completo de Kaggle"),
+        ("Tasa de abandono", pct(df_filtrado["churned"].mean(), 1), f"{int(df_filtrado['churned'].sum()):,} clientes cancelaron", "alerta"),
         (f"F1 de {ganador}", pct(t_gan["F1"]), f"prueba · meta ≥ {META_HIPOTESIS:.0%}", meta_ok),
         (f"Recall de {ganador}", pct(t_gan["Recall"]), f"prueba · meta ≥ {META_HIPOTESIS:.0%}", meta_ok),
     ])
+
+    if clusters_disponibles:
+        st.caption("F1 y Recall corresponden a la evaluación global, no al clúster.")
+        ui.seccion("Comportamiento del segmento seleccionado")
+        p, q, r = st.columns(3)
+        p.metric("Horas promedio", f"{df_filtrado['watch_hours'].mean():.1f} h")
+        q.metric("Días sin acceso", f"{df_filtrado['last_login_days'].mean():.1f}")
+        r.metric("Perfiles promedio", f"{df_filtrado['number_of_profiles'].mean():.1f}")
+        if elegido not in (None, 0):
+            st.caption("Los patrones, hallazgos y métricas de modelos que siguen corresponden al dataset completo.")
 
     # ¿Qué modelo se seleccionó?
     ui.seccion("¿Qué modelo se seleccionó?")
@@ -554,7 +618,7 @@ elif pagina == "📊 Explorar clientes":
         st.write("")
         st.button("Restablecer filtros", on_click=restablecer_filtros, width="stretch")
 
-    sub = df[df["subscription_type"].isin(planes)].copy()
+    sub = df_filtrado[df_filtrado["subscription_type"].isin(planes)].copy()
     if sub.empty:
         st.info("No hay clientes con este filtro. Elige al menos un plan para ver resultados.")
         st.stop()
@@ -609,7 +673,8 @@ elif pagina == "📊 Explorar clientes":
             q1, q3 = grupo.quantile([.25, .75])
             atipicos[estado] = int((grupo > q3 + 1.5 * (q3 - q1)).sum())
         st.caption(f"Puntos = valores atípicos (regla 1.5 × RIC): {atipicos.get(0, 0)} en quienes permanecen "
-                   f"y {atipicos.get(1, 0)} en quienes cancelan. Quien cancela se concentra en pocas horas.")
+                   f"y {atipicos.get(1, 0)} en quienes cancelan."
+                   + (" Quien cancela se concentra en pocas horas (patrón global)." if elegido in (None, 0) else ""))
     with right:
         num = [c for c in ["watch_hours", "last_login_days", "avg_watch_time_per_day",
                            "number_of_profiles", "monthly_fee", "age"] if c in sub.columns] + ["churned"]
@@ -635,8 +700,9 @@ elif pagina == "📊 Explorar clientes":
                 else "No hay variables con correlación moderada o fuerte en este filtro.")
     if len(debiles):
         st.write("Casi sin relación (|ρ| < 0.10): " + ", ".join(ETIQUETAS.get(v, v) for v in debiles.index) + ".")
-    st.write("Las variables de actividad son las más útiles para detectar riesgo. Horas vistas y horas "
-             "promedio por día están muy relacionadas entre sí, así que aportan información parecida.")
+    if elegido in (None, 0):
+        st.write("Las variables de actividad son las más útiles para detectar riesgo. Horas vistas y horas "
+                 "promedio por día están muy relacionadas entre sí, así que aportan información parecida.")
     ui.nota("<b>Correlación no significa causalidad:</b> estas relaciones describen los datos, no prueban causas.", "aviso")
 
 
@@ -662,6 +728,10 @@ elif pagina == "🤖 Comparar modelos":
                    "Recall: de los que cancelan, cuántos detecta el modelo. F1 combina ambas.")
 
     mostrar_kmeans(df)
+    if clusters_disponibles:
+        st.caption("La evaluación K-Means anterior recalcula los clusters con el dataset completo. "
+                   "El selector de Resumen y Explorar usa las etiquetas exportadas; "
+                   "la numeración de ambos análisis no tiene por qué coincidir.")
 
     ui.seccion("¿Por qué estas variables?")
     st.write(f"El notebook prueba cuatro escenarios de variables con validación cruzada. "
