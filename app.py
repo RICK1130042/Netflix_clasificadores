@@ -14,16 +14,18 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+from sklearn.cluster import KMeans
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import confusion_matrix, precision_recall_curve, roc_curve
+from sklearn.metrics import (
+    confusion_matrix, precision_recall_curve, roc_curve, roc_auc_score,
+)
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier, plot_tree
-from sklearn.cluster import KMeans
-from sklearn.metrics import roc_curve, roc_auc_score
+from threadpoolctl import threadpool_limits
 
 
 # ─── Configuración del proyecto ─────────────────────────────────────────────
@@ -33,13 +35,13 @@ MODEL_FILE = ROOT / "modelo_churn_netflix.joblib"
 NUMERICAS = [
     "watch_hours", "last_login_days", "avg_watch_time_per_day", "number_of_profiles"
 ]
+K_SELECCIONADO = 6
+VALORES_K = tuple(range(2, 11))
 PLANES = ["Basic", "Premium", "Standard"]
 COLUMNAS = NUMERICAS + [f"subscription_type_{plan}" for plan in PLANES]
 MODELOS = ["Regresión Logística", "Árbol de Decisión", "Random Forest", "Gradient Boosting"]
 ROJO = "#E50914"
 GRIS = "#9AA0AA"
-CLUSTER_FILE = ROOT / "etiquetas_clusters.csv"
-PERFILES_FILE = ROOT / "perfiles_clusters.csv"
 
 # Cifras transcritas de la evaluación en PRUEBA del notebook (N=1,000).
 RESULTADOS_TEST = pd.DataFrame([
@@ -176,6 +178,190 @@ def grafico_barras(tabla: pd.DataFrame, x: str, y: str, porcentaje=False):
     return fig
 
 
+# ─── K-Means: segmentación y evaluación predictiva ──────────────────────────
+@st.cache_data(show_spinner="Calculando K-Means y curvas ROC para K = 2 a 10...")
+def evaluar_kmeans(df: pd.DataFrame) -> dict:
+    """Replica los dos bloques de Colab usando las variables del dashboard.
+
+    Los perfiles de los seis grupos son descriptivos (dataset completo).
+    Para ROC, tanto el escalado como K-Means se ajustan solo con entrenamiento.
+    """
+    x, y = preparar_x(df)
+    x_train, x_test, y_train, y_test = train_test_split(
+        x, y, test_size=.20, random_state=42, stratify=y
+    )
+    if len(x_train) < max(VALORES_K) or len(x) <= max(VALORES_K):
+        raise ValueError("El dataset es demasiado pequeño para evaluar K de 2 a 10.")
+
+    # Estandarizar las cuatro variables para los perfiles descriptivos de K = 6.
+    x_cluster = StandardScaler().fit_transform(x[NUMERICAS])
+
+    # Bloque 2: escalado independiente para la evaluación predictiva 80/20.
+    scaler_cluster = StandardScaler()
+    train_scaled = scaler_cluster.fit_transform(x_train[NUMERICAS])
+    test_scaled = scaler_cluster.transform(x_test[NUMERICAS])
+
+    resultados = []
+    resultados_codo = []
+    curvas = {}
+    # Limitar hilos evita saturar el servidor cuando se prueban varios K.
+    with threadpool_limits(limits=1):
+        # Método del codo: replica el primer bloque de Colab con el dataset completo.
+        # La inercia se utiliza únicamente para esta gráfica.
+        for k in VALORES_K:
+            descriptivo = KMeans(n_clusters=k, random_state=42, n_init=10)
+            etiquetas = descriptivo.fit_predict(x_cluster)
+            resultados_codo.append({"K": k, "Inercia": float(descriptivo.inertia_)})
+            if k == K_SELECCIONADO:
+                etiquetas_elegidas = etiquetas
+        for k in VALORES_K:
+            # Distancias a centroides obtenidos SOLO del conjunto de train.
+            kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
+            kmeans.fit(train_scaled)
+            nombres = [f"dist_cluster_{i}" for i in range(k)]
+            train_dist = pd.DataFrame(kmeans.transform(train_scaled),
+                                      columns=nombres, index=x_train.index)
+            test_dist = pd.DataFrame(kmeans.transform(test_scaled),
+                                     columns=nombres, index=x_test.index)
+            x_train_k = pd.concat([x_train, train_dist], axis=1)
+            x_test_k = pd.concat([x_test, test_dist], axis=1)
+            modelo = Pipeline([
+                ("scaler", StandardScaler()),
+                ("logistic", LogisticRegression(max_iter=2000, random_state=42)),
+            ])
+            modelo.fit(x_train_k, y_train)
+            prob = modelo.predict_proba(x_test_k)[:, 1]
+            fpr, tpr, _ = roc_curve(y_test, prob)
+            auc = float(roc_auc_score(y_test, prob))
+            curvas[k] = {"fpr": fpr, "tpr": tpr, "auc": auc}
+            resultados.append({"K": k, "ROC-AUC": auc})
+
+    perfiles = df[NUMERICAS + ["churned"]].copy()
+    perfiles["Cluster"] = etiquetas_elegidas + 1  # Etiquetas visibles: 1 a 6.
+    segmentos = perfiles.groupby("Cluster").agg(
+        Clientes=("churned", "size"),
+        Abandono=("churned", "mean"),
+        **{col: (col, "mean") for col in NUMERICAS},
+    ).reindex(range(1, K_SELECCIONADO + 1)).reset_index()
+    segmentos["Clientes"] = segmentos["Clientes"].fillna(0).astype(int)
+    return {"resultados": pd.DataFrame(resultados), "curvas": curvas,
+            "segmentos": segmentos, "n_test": len(y_test),
+            "codo": pd.DataFrame(resultados_codo)}
+
+
+def grafico_kmeans(tabla: pd.DataFrame, metrica: str, titulo: str):
+    elegido = tabla.loc[tabla["K"] == K_SELECCIONADO].iloc[0]
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=tabla["K"], y=tabla[metrica],
+                             mode="lines+markers", name=metrica,
+                             line=dict(color=GRIS, width=2), marker=dict(size=8)))
+    fig.add_vline(x=K_SELECCIONADO, line_dash="dash", line_color=ROJO)
+    fig.add_trace(go.Scatter(x=[K_SELECCIONADO], y=[elegido[metrica]],
+                             mode="markers", name="K = 6 seleccionado",
+                             marker=dict(color=ROJO, size=15, symbol="diamond")))
+    fig.update_layout(title=titulo, xaxis_title="Número de clusters (K)",
+                      yaxis_title=metrica, height=350,
+                      margin=dict(l=15, r=15, t=65, b=15),
+                      legend=dict(orientation="h", y=-.25))
+    fig.update_xaxes(tickmode="array", tickvals=list(VALORES_K))
+    return fig
+
+
+def mostrar_kmeans(df: pd.DataFrame):
+    st.divider()
+    st.subheader("K-Means | Segmentación de clientes")
+    st.write("Evaluación de K = 2 a 10 para segmentar suscriptores y medir "
+             "el aporte predictivo de las distancias a los centroides.")
+    st.caption("Variables: watch_hours, last_login_days, avg_watch_time_per_day "
+               "y number_of_profiles. Estandarización con StandardScaler.")
+    if df is None:
+        st.info("Carga netflix_customer_churn.csv para calcular las métricas y gráficas de K-Means.")
+        return
+    try:
+        resultado = evaluar_kmeans(df)
+    except Exception as exc:
+        st.error(f"No se pudo evaluar K-Means: {exc}")
+        return
+    tabla = resultado["resultados"]
+    curvas = resultado["curvas"]
+    elegido = tabla.loc[tabla["K"] == K_SELECCIONADO].iloc[0]
+    mejor_auc = tabla.loc[tabla["ROC-AUC"].idxmax()]
+    st.success("Configuración seleccionada por el proyecto: K = 6 clusters.")
+    a, b = st.columns(2)
+    a.metric("Clusters seleccionados", str(K_SELECCIONADO))
+    b.metric("ROC-AUC · K = 6", f'{elegido["ROC-AUC"]:.4f}')
+
+    t_codo, t1, t2 = st.tabs(["Método del codo", "Curvas ROC y AUC", "Resultados y 6 clusters"])
+    with t_codo:
+        st.plotly_chart(
+            grafico_kmeans(resultado["codo"], "Inercia", "Método del codo — K-Means"),
+            use_container_width=True, key="km_codo"
+        )
+        st.caption("La gráfica muestra cómo disminuye la dispersión dentro de los grupos "
+                   "al aumentar K. Se busca el punto donde la mejora empieza a ser menor. "
+                   "K = 6 se destaca como la configuración seleccionada por el equipo; "
+                   "la marca no implica que el codo se haya detectado automáticamente.")
+    with t1:
+        st.write("**K-Means + Regresión Logística**: se agregan las distancias a los "
+                 "K centroides a las variables originales para estimar la probabilidad de churn.")
+        roc = go.Figure()
+        colores = px.colors.qualitative.Plotly
+        for i, k in enumerate(VALORES_K):
+            if k == K_SELECCIONADO:
+                continue
+            curva = curvas[k]
+            roc.add_trace(go.Scatter(x=curva["fpr"], y=curva["tpr"], mode="lines",
+                                     name=f'K = {k} | AUC = {curva["auc"]:.4f}',
+                                     line=dict(color=colores[i], width=1.5), opacity=.65))
+        roc.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode="lines",
+                                 name="Aleatorio | AUC = 0.50",
+                                 line=dict(color=GRIS, dash="dash")))
+        curva = curvas[K_SELECCIONADO]
+        roc.add_trace(go.Scatter(x=curva["fpr"], y=curva["tpr"], mode="lines",
+                                 name=f'K = 6 seleccionado | AUC = {curva["auc"]:.4f}',
+                                 line=dict(color=ROJO, width=4)))
+        roc.update_layout(title="Curvas ROC según número de clusters",
+                          xaxis_title="Tasa de falsos positivos (FPR)",
+                          yaxis_title="Tasa de verdaderos positivos (Recall)",
+                          height=490, legend=dict(orientation="h", y=-.2))
+        roc.update_xaxes(range=[0, 1])
+        roc.update_yaxes(range=[0, 1.01])
+        st.plotly_chart(roc, use_container_width=True, key="km_roc")
+        st.plotly_chart(grafico_kmeans(tabla, "ROC-AUC", "ROC-AUC según cantidad de clusters"),
+                        use_container_width=True, key="km_auc")
+        st.caption(f'Mayor AUC observado: K = {int(mejor_auc["K"])} '
+                   f'({mejor_auc["ROC-AUC"]:.4f}). Partición 80/20 estratificada '
+                   f'(semilla 42); prueba: {resultado["n_test"]:,} clientes.')
+        st.info("K-Means es no supervisado y no tiene ROC-AUC propio. La métrica "
+                "corresponde a la regresión logística con las distancias a centroides. "
+                "La comparación de K sobre prueba es exploratoria; para seleccionar K "
+                "por AUC se requiere validación independiente o cruzada en entrenamiento.")
+    with t2:
+        detalle = tabla.copy()
+        detalle["Selección"] = np.where(detalle["K"] == K_SELECCIONADO, "Seleccionado", "")
+        st.dataframe(detalle.style.format({"ROC-AUC": "{:.4f}"})
+                     .apply(lambda fila: ["font-weight: bold; color: #E50914"
+                                          if fila["K"] == K_SELECCIONADO else ""] * len(fila), axis=1),
+                     hide_index=True, use_container_width=True)
+        st.markdown("**Perfil de los seis clusters seleccionados**")
+        segmentos = resultado["segmentos"]
+        fig = px.bar(segmentos, x="Cluster", y="Clientes", color="Abandono",
+                     color_continuous_scale=[GRIS, ROJO], text="Clientes",
+                     labels={"Abandono": "Tasa de abandono"})
+        fig.update_xaxes(tickmode="array", tickvals=list(range(1, K_SELECCIONADO + 1)))
+        fig.update_layout(height=350, coloraxis_colorbar_tickformat=".0%")
+        st.plotly_chart(fig, use_container_width=True, key="km_segmentos")
+        st.dataframe(segmentos.style.format({"Abandono": "{:.1%}",
+                                             **{col: "{:.2f}" for col in NUMERICAS}}),
+                     hide_index=True, use_container_width=True)
+        st.caption("Segmentación descriptiva del dataset completo. La tasa de abandono "
+                   "se calcula después de formar los grupos; churned no se usa para agrupar. "
+                   "Los números de cluster son etiquetas, no un orden de riesgo.")
+    st.caption("Se conserva K = 6 como decisión del proyecto; los máximos observados "
+               "pueden corresponder a otros valores de K. El modelo campeón original "
+               "y el simulador permanecen sin cambios.")
+
+
 # ─── Dataset y recursos disponibles ─────────────────────────────────────────
 df = None
 if CSV_FILE.exists():
@@ -191,30 +377,6 @@ else:
             df = pd.read_csv(archivo)
         except Exception as exc:
             st.sidebar.error(f"CSV inválido: {exc}")
-
-# ─── Segmentación validada por Itzel ───
-perfiles = None
-clusters_disponibles = False
-if df is not None:
-    try:
-        etiquetas = leer_csv(str(CLUSTER_FILE), CLUSTER_FILE.stat().st_mtime_ns)
-        perfiles = leer_csv(str(PERFILES_FILE), PERFILES_FILE.stat().st_mtime_ns)
-        if not etiquetas["cluster"].isin(range(1, 7)).all():
-            raise ValueError("Etiquetas fuera del rango 1–6.")
-        if set(perfiles["cluster"]) != set(range(1, 7)) or not perfiles["cluster"].is_unique:
-            raise ValueError("Perfiles de clusters inválidos.")
-        if etiquetas["customer_id"].isna().any() or df["customer_id"].isna().any():
-            raise ValueError("Identificadores faltantes.")
-        unido = df.drop(columns=["cluster", "PC1", "PC2"], errors="ignore").merge(
-            etiquetas[["customer_id", "cluster", "PC1", "PC2"]],
-            on="customer_id", how="left", validate="one_to_one"
-        )
-        if unido["cluster"].isna().any():
-            raise ValueError("Hay clientes sin asignación de cluster.")
-        df = unido
-        clusters_disponibles = True
-    except Exception as exc:
-        st.sidebar.warning(f"Segmentación no disponible: {exc}")
 
 bundle = None
 if MODEL_FILE.exists():
@@ -239,32 +401,12 @@ st.markdown('<div class="netflix-brand">NETFLIX <span style="color:#ECEFF3;'
 st.caption("Clasificación de abandono de suscriptores | churned = 1 significa que cancela")
 
 
-# ─── Selector global de segmentos ───
-df_filtrado = df
-if pagina in ["🏠 Resumen ejecutivo", "📊 Explorar clientes"] and clusters_disponibles:
-    nombres = perfiles.set_index("cluster")["nombre"].to_dict()
-    st.subheader("Segmentación de clientes")
-    elegido = st.segmented_control(
-        "Selecciona un segmento", options=list(range(7)),
-        format_func=lambda x: "Todos" if x == 0 else f"Clúster {x}",
-        default=0, key="cluster_global"
-    )
-    if elegido not in (None, 0):
-        df_filtrado = df.loc[df["cluster"] == elegido].copy()
-        st.markdown(f"**Perfil:** {nombres[elegido]}")
-    else:
-        st.caption("Mostrando todos los clientes.")
-    if df_filtrado.empty:
-        st.info("No hay clientes en el segmento seleccionado.")
-        st.stop()
-    st.divider()
-
 # ─── 1. Resumen ─────────────────────────────────────────────────────────────
 if pagina == "🏠 Resumen ejecutivo":
     st.title("Panorama del abandono")
     st.write("Una visión del problema de negocio, los clientes y los modelos entrenados.")
-    total = len(df_filtrado) if df_filtrado is not None else 5000
-    tasa = float(df_filtrado["churned"].mean()) if df_filtrado is not None and "churned" in df_filtrado else .503
+    total = len(df) if df is not None else 5000
+    tasa = float(df["churned"].mean()) if df is not None and "churned" in df else .503
     a, b, c, d = st.columns(4)
     a.metric("Clientes analizados", f"{total:,}")
     b.metric("Tasa de abandono", f"{tasa:.1%}")
@@ -272,7 +414,6 @@ if pagina == "🏠 Resumen ejecutivo":
     d.metric("Recall del modelo elegido", "92.05 %")
     if df is None:
         st.info("Cifras descriptivas provenientes del notebook. Agrega el CSV para explorar segmentos.")
-    st.caption("F1 y Recall corresponden a la evaluación global, no al clúster.")
     st.subheader("¿Qué modelo se seleccionó?")
     izq, der = st.columns([1.5, 1])
     with izq:
@@ -288,14 +429,12 @@ if pagina == "🏠 Resumen ejecutivo":
         st.plotly_chart(grafico_barras(graf, "F1", "Modelo"), use_container_width=True)
         st.caption("F1 promedio · validación cruzada (5 particiones)")
     st.divider()
-    st.subheader("Comportamiento del segmento seleccionado")
-    if df_filtrado is not None and {"watch_hours", "last_login_days", "number_of_profiles"}.issubset(df_filtrado.columns):
-        p, q, r = st.columns(3)
-        p.metric("Horas promedio", f"{df_filtrado['watch_hours'].mean():.1f} h")
-        q.metric("Días sin acceso", f"{df_filtrado['last_login_days'].mean():.1f}")
-        r.metric("Perfiles promedio", f"{df_filtrado['number_of_profiles'].mean():.1f}")
-    else:
-        st.info("Carga el CSV completo para consultar estos indicadores.")
+    st.subheader("Patrones principales del análisis exploratorio")
+    p, q = st.columns(2)
+    p.metric("Mediana de horas vistas · permanece", "13.86 h")
+    q.metric("Mediana de horas vistas · cancela", "4.06 h")
+    st.caption("Los clientes que cancelan muestran menor visualización y más días "
+               "desde su último acceso (medianas: 41 vs. 19 días). Asociación, no causalidad.")
 
 
 # ─── 2. Exploración de clientes ──────────────────────────────────────────────
@@ -320,7 +459,7 @@ elif pagina == "📊 Explorar clientes":
         }
         opciones = {nombre: col for nombre, col in opciones.items() if col in df.columns}
         segmento = st.selectbox("Agrupar por", list(opciones))
-    sub = df_filtrado[df_filtrado["subscription_type"].isin(planes)].copy()
+    sub = df[df["subscription_type"].isin(planes)].copy()
     if sub.empty:
         st.info("Elige al menos un plan para ver resultados.")
         st.stop()
@@ -376,6 +515,9 @@ elif pagina == "🤖 Comparar modelos":
                      .sort_values("F1", ascending=False).style.format("{:.2%}"),
                      use_container_width=True)
         st.caption("F1 combina Precision y Recall. Una puntuación más alta es mejor.")
+
+    mostrar_kmeans(df)
+    st.divider()
 
     st.subheader("¿Por qué estas variables?")
     st.write("El notebook prueba cuatro escenarios usando las variables seleccionadas. "
@@ -460,6 +602,7 @@ elif pagina == "🤖 Comparar modelos":
                        "aleatoria que el notebook (semilla 42).")
         except Exception as exc:
             st.error(f"No se pudo preparar la evaluación: {exc}")
+
 
 # ─── 4. Simulador ────────────────────────────────────────────────────────────
 else:
