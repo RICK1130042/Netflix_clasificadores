@@ -1,0 +1,9 @@
+streamlit
+joblib
+matplotlib
+numpy
+pandas
+plotly
+scikit-learn
+threadpoolctl
+jinja2
