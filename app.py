@@ -36,6 +36,8 @@ COLUMNAS = NUMERICAS + [f"subscription_type_{plan}" for plan in PLANES]
 MODELOS = ["Regresión Logística", "Árbol de Decisión", "Random Forest", "Gradient Boosting"]
 ROJO = "#E50914"
 GRIS = "#9AA0AA"
+CLUSTER_FILE = ROOT / "etiquetas_clusters.csv"
+PERFILES_FILE = ROOT / "perfiles_clusters.csv"
 
 # Cifras transcritas de la evaluación en PRUEBA del notebook (N=1,000).
 RESULTADOS_TEST = pd.DataFrame([
@@ -188,6 +190,30 @@ else:
         except Exception as exc:
             st.sidebar.error(f"CSV inválido: {exc}")
 
+# ─── Segmentación validada por Itzel ───
+perfiles = None
+clusters_disponibles = False
+if df is not None:
+    try:
+        etiquetas = leer_csv(str(CLUSTER_FILE), CLUSTER_FILE.stat().st_mtime_ns)
+        perfiles = leer_csv(str(PERFILES_FILE), PERFILES_FILE.stat().st_mtime_ns)
+        if not etiquetas["cluster"].isin(range(1, 7)).all():
+            raise ValueError("Etiquetas fuera del rango 1–6.")
+        if set(perfiles["cluster"]) != set(range(1, 7)) or not perfiles["cluster"].is_unique:
+            raise ValueError("Perfiles de clusters inválidos.")
+        if etiquetas["customer_id"].isna().any() or df["customer_id"].isna().any():
+            raise ValueError("Identificadores faltantes.")
+        unido = df.drop(columns=["cluster", "PC1", "PC2"], errors="ignore").merge(
+            etiquetas[["customer_id", "cluster", "PC1", "PC2"]],
+            on="customer_id", how="left", validate="one_to_one"
+        )
+        if unido["cluster"].isna().any():
+            raise ValueError("Hay clientes sin asignación de cluster.")
+        df = unido
+        clusters_disponibles = True
+    except Exception as exc:
+        st.sidebar.warning(f"Segmentación no disponible: {exc}")
+
 bundle = None
 if MODEL_FILE.exists():
     try:
@@ -211,12 +237,32 @@ st.markdown('<div class="netflix-brand">NETFLIX <span style="color:#ECEFF3;'
 st.caption("Clasificación de abandono de suscriptores | churned = 1 significa que cancela")
 
 
+# ─── Selector global de segmentos ───
+df_filtrado = df
+if pagina in ["🏠 Resumen ejecutivo", "📊 Explorar clientes"] and clusters_disponibles:
+    nombres = perfiles.set_index("cluster")["nombre"].to_dict()
+    st.subheader("Segmentación de clientes")
+    elegido = st.segmented_control(
+        "Selecciona un segmento", options=list(range(7)),
+        format_func=lambda x: "Todos" if x == 0 else f"Clúster {x}",
+        default=0, key="cluster_global"
+    )
+    if elegido not in (None, 0):
+        df_filtrado = df.loc[df["cluster"] == elegido].copy()
+        st.markdown(f"**Perfil:** {nombres[elegido]}")
+    else:
+        st.caption("Mostrando todos los clientes.")
+    if df_filtrado.empty:
+        st.info("No hay clientes en el segmento seleccionado.")
+        st.stop()
+    st.divider()
+
 # ─── 1. Resumen ─────────────────────────────────────────────────────────────
 if pagina == "🏠 Resumen ejecutivo":
     st.title("Panorama del abandono")
     st.write("Una visión del problema de negocio, los clientes y los modelos entrenados.")
-    total = len(df) if df is not None else 5000
-    tasa = float(df["churned"].mean()) if df is not None and "churned" in df else .503
+    total = len(df_filtrado) if df_filtrado is not None else 5000
+    tasa = float(df_filtrado["churned"].mean()) if df_filtrado is not None and "churned" in df_filtrado else .503
     a, b, c, d = st.columns(4)
     a.metric("Clientes analizados", f"{total:,}")
     b.metric("Tasa de abandono", f"{tasa:.1%}")
@@ -224,6 +270,7 @@ if pagina == "🏠 Resumen ejecutivo":
     d.metric("Recall del modelo elegido", "92.05 %")
     if df is None:
         st.info("Cifras descriptivas provenientes del notebook. Agrega el CSV para explorar segmentos.")
+    st.caption("F1 y Recall corresponden a la evaluación global, no al clúster.")
     st.subheader("¿Qué modelo se seleccionó?")
     izq, der = st.columns([1.5, 1])
     with izq:
@@ -239,12 +286,14 @@ if pagina == "🏠 Resumen ejecutivo":
         st.plotly_chart(grafico_barras(graf, "F1", "Modelo"), use_container_width=True)
         st.caption("F1 promedio · validación cruzada (5 particiones)")
     st.divider()
-    st.subheader("Patrones principales del análisis exploratorio")
-    p, q = st.columns(2)
-    p.metric("Mediana de horas vistas · permanece", "13.86 h")
-    q.metric("Mediana de horas vistas · cancela", "4.06 h")
-    st.caption("Los clientes que cancelan muestran menor visualización y más días "
-               "desde su último acceso (medianas: 41 vs. 19 días). Asociación, no causalidad.")
+    st.subheader("Comportamiento del segmento seleccionado")
+    if df_filtrado is not None and {"watch_hours", "last_login_days", "number_of_profiles"}.issubset(df_filtrado.columns):
+        p, q, r = st.columns(3)
+        p.metric("Horas promedio", f"{df_filtrado['watch_hours'].mean():.1f} h")
+        q.metric("Días sin acceso", f"{df_filtrado['last_login_days'].mean():.1f}")
+        r.metric("Perfiles promedio", f"{df_filtrado['number_of_profiles'].mean():.1f}")
+    else:
+        st.info("Carga el CSV completo para consultar estos indicadores.")
 
 
 # ─── 2. Exploración de clientes ──────────────────────────────────────────────
@@ -269,7 +318,7 @@ elif pagina == "📊 Explorar clientes":
         }
         opciones = {nombre: col for nombre, col in opciones.items() if col in df.columns}
         segmento = st.selectbox("Agrupar por", list(opciones))
-    sub = df[df["subscription_type"].isin(planes)].copy()
+    sub = df_filtrado[df_filtrado["subscription_type"].isin(planes)].copy()
     if sub.empty:
         st.info("Elige al menos un plan para ver resultados.")
         st.stop()

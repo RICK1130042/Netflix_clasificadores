@@ -1,0 +1,7 @@
+cluster,clientes,horas_medias,dias_sin_acceso,perfiles,tasa_abandono,nombre,rasgo_1,rasgo_2,rasgo_3
+1,863,12.09457705677868,47.42410196987254,4.434530706836616,0.6002317497103129,Inactivos con muchos perfiles,12.09 horas vistas en promedio,47.42 días sin acceso en promedio,4.43 perfiles en promedio
+2,756,2.4995502645502645,18.263227513227513,4.146825396825397,0.5846560846560847,Poco consumo y acceso reciente,2.50 horas vistas en promedio,18.26 días sin acceso en promedio,4.15 perfiles en promedio
+3,898,11.433240534521158,12.251670378619155,1.6247216035634744,0.21158129175946547,Acceso reciente y pocos perfiles,11.43 horas vistas en promedio,12.25 días sin acceso en promedio,1.62 perfiles en promedio
+4,902,18.37079822616408,43.648558758314856,1.9700665188470066,0.6718403547671841,Inactivos con consumo acumulado,18.37 horas vistas en promedio,43.65 días sin acceso en promedio,1.97 perfiles en promedio
+5,827,20.866614268440145,16.59975816203144,4.090689238210399,0.008464328899637243,Consumo alto y acceso reciente,20.87 horas vistas en promedio,16.60 días sin acceso en promedio,4.09 perfiles en promedio
+6,754,2.421445623342175,41.92838196286472,2.043766578249337,0.9973474801061007,Poco consumo e inactividad alta,2.42 horas vistas en promedio,41.93 días sin acceso en promedio,2.04 perfiles en promedio
