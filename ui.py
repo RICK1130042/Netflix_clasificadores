@@ -18,16 +18,7 @@ import streamlit as st
 
 # ─── Paleta (tokens de diseño) ──────────────────────────────────────────────
 # Un solo lugar para los colores: si cambia la identidad visual, se cambia aquí.
-COLORES = {
-    "rojo": "#E50914",       # acento: lo que requiere atención
-    "fondo": "#111318",      # fondo de la página (igual que .streamlit/config.toml)
-    "tarjeta": "#1B1F27",    # fondo de tarjetas
-    "borde": "#313640",
-    "texto": "#F5F6FA",
-    "texto_suave": "#B9BEC8",
-    "verde": "#46D369",      # cumplimiento de objetivos
-    "ambar": "#F5A524",      # advertencia
-}
+from palette import COLORES
 
 _TONOS = {"normal": COLORES["texto"], "alerta": COLORES["rojo"], "ok": COLORES["verde"], "aviso": COLORES["ambar"]}
 
@@ -69,12 +60,12 @@ h1, h2, h3 {{letter-spacing: -.02em;}}
 .ui-tarjeta {{background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 12px;
   padding: 14px 18px; height: 100%;}}
 .ui-tarjeta h4 {{margin: 0 0 .5rem 0; font-size: 1rem;}}
-.ui-tarjeta li, .ui-tarjeta p {{font-size: .9rem; color: #D5D9E0; margin-bottom: .3rem;}}
+.ui-tarjeta li, .ui-tarjeta p {{font-size: .9rem; color: var(--texto); margin-bottom: .3rem;}}
 .ui-tarjeta ul {{padding-left: 1.1rem; margin: 0;}}
 
 /* Notas de interpretación */
-.ui-nota {{border-left: 3px solid var(--texto-suave); background: rgba(255,255,255,.04);
-  padding: 10px 14px; border-radius: 0 8px 8px 0; color: #D5D9E0; font-size: .9rem; margin: .6rem 0;}}
+.ui-nota {{border-left: 3px solid var(--texto-suave); background: var(--tarjeta);
+  padding: 10px 14px; border-radius: 0 8px 8px 0; color: var(--texto); font-size: .9rem; margin: .6rem 0;}}
 .ui-nota.aviso {{border-left-color: var(--ambar);}}
 .ui-nota.ok {{border-left-color: var(--verde);}}
 .ui-nota.alerta {{border-left-color: var(--rojo);}}
@@ -87,6 +78,9 @@ h1, h2, h3 {{letter-spacing: -.02em;}}
 div[data-testid="stMetric"] {{background: var(--tarjeta); padding: 14px 18px; border: 1px solid var(--borde); border-radius: 12px;}}
 div[data-testid="stMetricValue"] {{font-size: 1.85rem;}}
 div[data-testid="stMetric"] * {{color: var(--texto) !important;}}
+
+/* Botones primarios: texto oscuro sobre el acento claro. */
+button[kind="primary"], button[kind="primary"] * {{color: {COLORES['negro']} !important;}}
 </style>
 """
 
@@ -152,3 +146,17 @@ def pie(fuentes: list, equipo: str = "Equipo 1 · TI3008C · Tecnológico de Mon
     """Pie de página común con equipo y fuentes de los datos."""
     _html(f'<div class="ui-pie"><span>{escape(equipo)}</span>'
           f'<span>Fuentes: {escape(" · ".join(fuentes))}</span></div>')
+
+
+def grafica(pregunta, figura, **kwargs):
+    """Pregunta visible y fondo fijo; evita colores de tema no comprobados."""
+    st.markdown(f"**Pregunta:** {pregunta}")
+    figura.update_layout(paper_bgcolor=COLORES["fondo"], plot_bgcolor=COLORES["fondo"],
+                         font=dict(color=COLORES["texto"]),
+                         colorway=[COLORES["azul"], COLORES["rojo"], COLORES["ambar"], COLORES["gris"]])
+    figura.update_xaxes(gridcolor=COLORES["borde"], zerolinecolor=COLORES["borde"])
+    figura.update_yaxes(gridcolor=COLORES["borde"], zerolinecolor=COLORES["borde"])
+    for traza in figura.data:
+        if traza.type == "bar":
+            traza.update(textposition="outside", textfont=dict(color=COLORES["texto"]), cliponaxis=False)
+    st.plotly_chart(figura, theme=None, **kwargs)

@@ -27,6 +27,8 @@ import streamlit as st
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))  # para encontrar ui.py se ejecute como se ejecute
 import ui  # noqa: E402  componentes visuales compartidos
+from palette import COLORES
+import auth
 from sklearn.cluster import KMeans
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
@@ -58,9 +60,11 @@ K_SELECCIONADO = 6
 VALORES_K = tuple(range(2, 11))
 META_HIPOTESIS = 0.90          # F1 y Recall mínimos aprobados por el equipo (clase churned = 1)
 
-ROJO = "#E50914"
-GRIS = "#9AA0AA"
-VERDE = "#46D369"
+ROJO = COLORES["rojo"]
+GRIS = COLORES["gris"]
+VERDE = COLORES["verde"]
+AMBAR = COLORES["ambar"]
+AZUL = COLORES["azul"]
 
 # Nombres en español para las columnas del dataset
 ETIQUETAS = {
@@ -77,6 +81,7 @@ ETIQUETAS = {
 st.set_page_config(page_title="Netflix · Churn Analytics", page_icon="🎬",
                    layout="wide", initial_sidebar_state="expanded")
 ui.aplicar_estilos()
+rol = auth.iniciar_sesion()
 
 
 # ─── Carga de datos y resultados ────────────────────────────────────────────
@@ -179,6 +184,10 @@ def grafico_barras(tabla: pd.DataFrame, x: str, y: str, titulo: str, formato: st
     else:
         tabla["_valor"] = tabla[x]
         texto, sufijo = "%{x:.3f}", ""
+    if tabla.empty:
+        fig = go.Figure()
+        fig.add_annotation(text="No hay valores suficientes para esta gráfica.", showarrow=False)
+        return fig
     colores = [ROJO if (resaltar is None or v == resaltar) else GRIS for v in tabla[y]]
     fig = go.Figure(go.Bar(x=tabla["_valor"], y=tabla[y], orientation="h", marker_color=colores,
                            texttemplate=texto, textposition="outside", cliponaxis=False,
@@ -312,7 +321,7 @@ def mostrar_kmeans(df: pd.DataFrame):
 
     t_codo, t1, t2 = st.tabs(["Método del codo", "Curvas ROC y AUC", "Resultados y 6 clusters"])
     with t_codo:
-        st.plotly_chart(
+        ui.grafica('¿A partir de qué número de clústeres disminuye la mejora de la compactación de grupos?', 
             grafico_kmeans(resultado["codo"], "Inercia", "Método del codo — K-Means"),
             use_container_width=True, key="km_codo"
         )
@@ -324,14 +333,11 @@ def mostrar_kmeans(df: pd.DataFrame):
         st.write("**K-Means + Regresión Logística**: se agregan las distancias a los "
                  "K centroides a las variables originales para estimar la probabilidad de churn.")
         roc = go.Figure()
-        colores = px.colors.qualitative.Plotly
-        for i, k in enumerate(VALORES_K):
-            if k == K_SELECCIONADO:
-                continue
-            curva = curvas[k]
-            roc.add_trace(go.Scatter(x=curva["fpr"], y=curva["tpr"], mode="lines",
-                                     name=f'K = {k} | AUC = {curva["auc"]:.4f}',
-                                     line=dict(color=colores[i], width=1.5), opacity=.65))
+        k_otro = st.selectbox("Comparar K = 6 con", [k for k in VALORES_K if k != K_SELECCIONADO], key="km_comparador")
+        curva = curvas[k_otro]
+        roc.add_trace(go.Scatter(x=curva["fpr"], y=curva["tpr"], mode="lines",
+                                 name=f'K = {k_otro} | AUC = {curva["auc"]:.4f}',
+                                 line=dict(color=AZUL, width=3, dash="dot")))
         roc.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode="lines",
                                  name="Aleatorio | AUC = 0.50",
                                  line=dict(color=GRIS, dash="dash")))
@@ -345,8 +351,8 @@ def mostrar_kmeans(df: pd.DataFrame):
                           height=490, legend=dict(orientation="h", y=-.2))
         roc.update_xaxes(range=[0, 1])
         roc.update_yaxes(range=[0, 1.01])
-        st.plotly_chart(roc, use_container_width=True, key="km_roc")
-        st.plotly_chart(grafico_kmeans(tabla, "ROC-AUC", "ROC-AUC según cantidad de clusters"),
+        ui.grafica('¿Cómo cambia la discriminación del abandono al usar K = 6 frente a otro K?', roc, use_container_width=True, key="km_roc")
+        ui.grafica('¿Qué cantidad de clústeres merece validación adicional por su AUC exploratorio?', grafico_kmeans(tabla, "ROC-AUC", "ROC-AUC según cantidad de clusters"),
                         use_container_width=True, key="km_auc")
         st.caption(f'Mayor AUC observado: K = {int(mejor_auc["K"])} '
                    f'({mejor_auc["ROC-AUC"]:.4f}). Partición 80/20 estratificada '
@@ -359,17 +365,16 @@ def mostrar_kmeans(df: pd.DataFrame):
         detalle = tabla.copy()
         detalle["Selección"] = np.where(detalle["K"] == K_SELECCIONADO, "Seleccionado", "")
         st.dataframe(detalle.style.format({"ROC-AUC": "{:.4f}"})
-                     .apply(lambda fila: ["font-weight: bold; color: #E50914"
+                     .apply(lambda fila: [f"font-weight: bold; color: {ROJO}"
                                           if fila["K"] == K_SELECCIONADO else ""] * len(fila), axis=1),
                      hide_index=True, use_container_width=True)
         st.markdown("**Perfil de los seis clusters seleccionados**")
         segmentos = resultado["segmentos"]
-        fig = px.bar(segmentos, x="Cluster", y="Clientes", color="Abandono",
-                     color_continuous_scale=[GRIS, ROJO], text="Clientes",
-                     labels={"Abandono": "Tasa de abandono"})
+        fig = px.bar(segmentos, x="Cluster", y="Clientes", text="Clientes",
+                     color_discrete_sequence=[AZUL], hover_data={"Abandono": ":.1%"})
         fig.update_xaxes(tickmode="array", tickvals=list(range(1, K_SELECCIONADO + 1)))
-        fig.update_layout(height=350, coloraxis_colorbar_tickformat=".0%")
-        st.plotly_chart(fig, use_container_width=True, key="km_segmentos")
+        fig.update_layout(height=350)
+        ui.grafica('¿Qué tamaño y tasa de abandono tiene cada grupo para orientar la capacidad de retención?', fig, use_container_width=True, key="km_segmentos")
         st.dataframe(segmentos.style.format({"Abandono": "{:.1%}",
                                              **{col: "{:.2f}" for col in NUMERICAS}}),
                      hide_index=True, use_container_width=True)
@@ -392,7 +397,7 @@ if CSV_FILE.exists():
         st.error(f"No fue posible leer el CSV: {exc}")
 else:
     st.sidebar.caption("No se encontró netflix_customer_churn.csv en esta carpeta.")
-    archivo = st.sidebar.file_uploader("Cargar dataset CSV", type="csv")
+    archivo = st.sidebar.file_uploader("Cargar dataset CSV", type="csv") if rol == "analista" else None
     if archivo is not None:
         try:
             df = validar_dataset(pd.read_csv(archivo))
@@ -437,10 +442,8 @@ if MODEL_FILE.exists():
         st.sidebar.warning(f"No se pudo cargar el modelo guardado: {exc}")
 
 ui.marca("CHURN ANALYTICS · MODELOS DE CLASIFICACIÓN")
-pagina = st.sidebar.radio("Navegación", [
-    "🏠 Resumen ejecutivo", "📊 Explorar clientes", "🤖 Comparar modelos", "🎯 Predecir abandono",
-    "📣 Campañas de retención"
-], label_visibility="collapsed")
+pagina = st.sidebar.radio("Navegación", auth.PAGINAS[rol], label_visibility="collapsed", key="navegacion")
+auth.exigir_pagina(rol, pagina)
 st.sidebar.divider()
 st.sidebar.caption(f"Dataset: {'disponible' if df is not None else 'sin cargar'}")
 if fecha_datos:
@@ -462,11 +465,15 @@ if pagina in ["🏠 Resumen ejecutivo", "📊 Explorar clientes"] and clusters_d
         format_func=lambda x: "Todos" if x == 0 else f"Clúster {x}",
         default=0, key="cluster_global"
     )
-    if elegido not in (None, 0):
+    if elegido is None:
+        st.info("No seleccionaste ningún segmento. Elige un clúster o Todos.")
+        st.caption("Clientes seleccionados: 0")
+        st.stop()
+    if elegido != 0:
         df_filtrado = df_segmentado.loc[df_segmentado["cluster"] == elegido].copy()
         st.markdown(f"**Perfil:** {nombres[elegido]}")
-    else:
-        st.caption("Mostrando todos los clientes.")
+    filtro_cluster = "Todos" if elegido == 0 else f"Clúster {elegido}"
+    st.caption(f"Segmento activo: {filtro_cluster} · {len(df_filtrado):,} clientes de {len(df_segmentado):,}")
     if df_filtrado.empty:
         st.info("No hay clientes en el segmento seleccionado.")
         st.stop()
@@ -530,7 +537,7 @@ if pagina == "🏠 Resumen ejecutivo":
                    "Aquí el criterio aprobado es el F1 en validación cruzada.")
     with der:
         graf = res["cv_base"].sort_values("F1")
-        st.plotly_chart(grafico_barras(graf, "F1", "Modelo", "F1 promedio en validación cruzada",
+        ui.grafica('¿Qué modelo se debe seleccionar por F1 en validación cruzada?', grafico_barras(graf, "F1", "Modelo", "F1 promedio en validación cruzada",
                                        eje="F1", resaltar=ganador), use_container_width=True)
         st.caption("5 particiones estratificadas sobre el 80 % de entrenamiento.")
 
@@ -620,8 +627,11 @@ elif pagina == "📊 Explorar clientes":
         st.button("Restablecer filtros", on_click=restablecer_filtros, width="stretch")
 
     sub = df_filtrado[df_filtrado["subscription_type"].isin(planes)].copy()
+    filtro_cluster = "Todos" if elegido == 0 else f"Clúster {elegido}"
+    st.caption(f"Planes activos: {', '.join(planes) or 'Ninguno'} · Segmento: {filtro_cluster} · Agrupación: {segmento}")
+    st.caption(f"Clientes filtrados: {len(sub):,} de {len(df):,}")
     if sub.empty:
-        st.info("No hay clientes con este filtro. Elige al menos un plan para ver resultados.")
+        st.info("No hay clientes con este filtro. Elige al menos un plan con registros.")
         st.stop()
 
     ui.fila_kpis([
@@ -634,12 +644,15 @@ elif pagina == "📊 Explorar clientes":
     ui.seccion("Tasa de abandono por segmento")
     col = opciones[segmento]
     seg = (sub.groupby(col)["churned"].agg(clientes="size", cancelan="sum", tasa="mean").reset_index())
+    if seg.empty:
+        st.info("La agrupación no contiene categorías válidas.")
+        st.stop()
     seg[col] = seg[col].astype(str)
     seg["Abandono (%)"] = seg["tasa"] * 100
     seg = seg.sort_values("Abandono (%)", ascending=False)        # mayor a menor
     left, right = st.columns([1.5, 1])
     with left:
-        st.plotly_chart(grafico_barras(seg.iloc[::-1], "Abandono (%)", col,
+        ui.grafica('¿Qué segmento presenta mayor tasa de abandono y merece atención prioritaria?', grafico_barras(seg.iloc[::-1], "Abandono (%)", col,
                                        f"Tasa de abandono por {segmento.lower()}", formato="pct100",
                                        eje="Abandono", resaltar=seg.iloc[0][col]), use_container_width=True)
     with right:
@@ -653,29 +666,31 @@ elif pagina == "📊 Explorar clientes":
         st.write(f"**{seg.iloc[0][col]}** es el segmento con más abandono ({seg.iloc[0]['Abandono (%)']:.1f} %). "
                  f"La diferencia entre el segmento más alto y el más bajo es de {brecha:.1f} puntos"
                  + ("; es pequeña, así que esta variable distingue poco el riesgo." if brecha < 5 else "."))
-        st.download_button("Descargar clientes filtrados (CSV)",
-                           sub.to_csv(index=False).encode("utf-8"),
-                           file_name="clientes_filtrados.csv", mime="text/csv", width="stretch")
+        if rol == "analista":
+            st.download_button("Descargar clientes filtrados (CSV)",
+                               sub.to_csv(index=False).encode("utf-8"),
+                               file_name="clientes_filtrados.csv", mime="text/csv", width="stretch")
+        else:
+            st.caption("La exportación de registros individuales está reservada al analista.")
 
     ui.seccion("Comportamiento y correlaciones")
     left, right = st.columns(2)
     with left:
         caja = sub.assign(Estado=sub["churned"].map({0: "0 · Permanece", 1: "1 · Cancela"}))
-        fig = px.box(caja, x="Estado", y="watch_hours", points="outliers", color="Estado",
-                     color_discrete_map={"0 · Permanece": GRIS, "1 · Cancela": ROJO},
+        fig = px.box(caja, x="Estado", y="watch_hours", points=False, color="Estado",
+                     color_discrete_map={"0 · Permanece": AZUL, "1 · Cancela": ROJO},
                      category_orders={"Estado": ["0 · Permanece", "1 · Cancela"]},
                      labels={"Estado": "Estado de abandono (0 = permanece, 1 = cancela)",
                              "watch_hours": "Horas de visualización (h)"})
         fig.update_layout(title=dict(text="Horas de visualización según abandono", x=0, font=dict(size=15)),
                           showlegend=False, height=380, margin=dict(t=45))
-        st.plotly_chart(fig, use_container_width=True)
+        ui.grafica('¿Qué diferencias de horas vistas existen entre quienes permanecen y quienes cancelan?', fig, use_container_width=True)
         atipicos = {}
         for estado, grupo in sub.groupby("churned")["watch_hours"]:
             q1, q3 = grupo.quantile([.25, .75])
             atipicos[estado] = int((grupo > q3 + 1.5 * (q3 - q1)).sum())
-        st.caption(f"Puntos = valores atípicos (regla 1.5 × RIC): {atipicos.get(0, 0)} en quienes permanecen "
-                   f"y {atipicos.get(1, 0)} en quienes cancelan."
-                   + (" Quien cancela se concentra en pocas horas (patrón global)." if elegido in (None, 0) else ""))
+        st.caption(f"Atípicos (regla 1.5 × RIC): {atipicos.get(0, 0)} en quienes permanecen "
+                   f"y {atipicos.get(1, 0)} en quienes cancelan. No se muestran puntos individuales.")
     with right:
         num = [c for c in ["watch_hours", "last_login_days", "avg_watch_time_per_day",
                            "number_of_profiles", "monthly_fee", "age"] if c in sub.columns] + ["churned"]
@@ -684,12 +699,10 @@ elif pagina == "📊 Explorar clientes":
                   "avg_watch_time_per_day": "Horas/día", "number_of_profiles": "Perfiles",
                   "monthly_fee": "Mensualidad", "age": "Edad", "churned": "Abandono"}
         nombres = [cortos.get(c, c) for c in num]
-        fig = px.imshow(correlacion.values, x=nombres, y=nombres, text_auto=".2f", zmin=-1, zmax=1,
-                        color_continuous_scale="RdBu_r", aspect="auto")
-        fig.update_layout(title=dict(text="Correlación de Spearman", x=0, font=dict(size=15)),
-                          height=440, margin=dict(l=5, r=5, t=45, b=20), xaxis_tickangle=-35,
-                          coloraxis_colorbar=dict(title="ρ"))
-        st.plotly_chart(fig, use_container_width=True)
+        rel_grafica = correlacion["churned"].drop("churned").dropna().sort_values(key=abs)
+        tabla_corr = pd.DataFrame({"Variable": [cortos.get(c, c) for c in rel_grafica.index], "rho": rel_grafica.values})
+        fig = grafico_barras(tabla_corr, "rho", "Variable", "Correlación de Spearman con abandono", formato="dec", eje="ρ")
+        ui.grafica('¿Qué variables se asocian más con el abandono y merecen seguimiento?', fig, use_container_width=True)
 
     rel = correlacion["churned"].drop("churned").sort_values(key=abs, ascending=False)
     fuertes = rel[rel.abs() >= .3]
@@ -720,7 +733,7 @@ elif pagina == "🤖 Comparar modelos":
     tabla = res["test"].sort_values(metrica, ascending=True)
     izquierda, derecha = st.columns([1.3, 1])
     with izquierda:
-        st.plotly_chart(grafico_barras(tabla, metrica, "Modelo", f"{metrica} en el conjunto de prueba",
+        ui.grafica('¿Cómo se comparan los modelos en prueba según la métrica seleccionada?', grafico_barras(tabla, metrica, "Modelo", f"{metrica} en el conjunto de prueba",
                                        eje=metrica, resaltar=res["ganador"]), use_container_width=True)
     with derecha:
         st.dataframe(res["test"].set_index("Modelo").sort_values("F1", ascending=False)
@@ -745,7 +758,7 @@ elif pagina == "🤖 Comparar modelos":
         st.caption(f"F1 y Recall de {res['ganador']} en validación cruzada para cada escenario.")
     with c2:
         imp = res["imp"].sort_values("Importancia")
-        st.plotly_chart(grafico_barras(imp, "Importancia", "Variable",
+        ui.grafica('¿Qué variables aportan más al desempeño del modelo y conviene vigilar?', grafico_barras(imp, "Importancia", "Variable",
                                        f"Importancia por permutación · {res['ganador']}", formato="dec",
                                        eje="Disminución del F1", resaltar=imp.iloc[-1]["Variable"]),
                         use_container_width=True)
@@ -778,15 +791,14 @@ elif pagina == "🤖 Comparar modelos":
                 x_test = x_test[list(bundle["columnas"])]
             pred = modelo.predict(x_test)
             prob = modelo.predict_proba(x_test)[:, 1]
-            t1, t2, t3 = st.tabs(["Matriz de confusión", "Curvas ROC y PR", "Árbol"])
+            t1, t2 = st.tabs(["Matriz de confusión", "Curvas ROC y PR"])
             with t1:
                 cm = confusion_matrix(y_test, pred, labels=[0, 1])
-                fig = px.imshow(cm, text_auto=True, color_continuous_scale="Reds",
-                                x=["Permanece (0)", "Abandona (1)"], y=["Permanece (0)", "Abandona (1)"])
-                fig.update_layout(title=dict(text=f"Matriz de confusión · {modelo_nombre}", x=0),
-                                  xaxis_title="Predicción", yaxis_title="Valor real",
-                                  height=400, coloraxis_showscale=False)
-                st.plotly_chart(fig, use_container_width=True)
+                etiquetas_cm = ["VN · Permanece detectado", "FP · Falsa alerta", "FN · Abandono no detectado", "VP · Abandono detectado"]
+                fig = go.Figure(go.Bar(x=cm.ravel(), y=etiquetas_cm, orientation="h",
+                                       marker_color=[AZUL, ROJO, ROJO, AZUL], text=cm.ravel(), textposition="outside"))
+                fig.update_layout(title=f"Matriz de confusión (conteos) · {modelo_nombre}", xaxis_title="Clientes", height=400)
+                ui.grafica('¿Cuántos falsos negativos y falsos positivos produce el modelo seleccionado?', fig, use_container_width=True)
                 tn, fp, fn, tp = cm.ravel()
                 st.caption(f"Aciertos: {tn + tp:,} de {cm.sum():,}. Falsos negativos (cancela y no se detectó): "
                            f"{fn}. Falsos positivos (se marcó como riesgo y permaneció): {fp}.")
@@ -802,22 +814,15 @@ elif pagina == "🤖 Comparar modelos":
                                              line=dict(color=GRIS, dash="dash"), showlegend=False))
                     roc.update_layout(title="Curva ROC", xaxis_title="Tasa de falsos positivos",
                                       yaxis_title="Recall", height=345)
-                    st.plotly_chart(roc, use_container_width=True)
+                    ui.grafica('¿Qué equilibrio entre detección y falsas alarmas ofrece el modelo al variar el umbral?', roc, use_container_width=True)
                 with b:
                     pr = go.Figure()
                     pr.add_trace(go.Scatter(x=rec, y=prec, mode="lines", name=modelo_nombre,
                                             line=dict(color=ROJO, width=3)))
                     pr.update_layout(title="Precision–Recall", xaxis_title="Recall",
                                      yaxis_title="Precision", height=345)
-                    st.plotly_chart(pr, use_container_width=True)
-            with t3:
-                arbol = evaluacion["modelos"]["Árbol de Decisión"]
-                fig, ax = plt.subplots(figsize=(16, 7))
-                plot_tree(arbol, max_depth=3, filled=True, rounded=True, fontsize=8, feature_names=COLUMNAS,
-                          class_names=["Permanece", "Abandona"], ax=ax)
-                st.pyplot(fig, width="stretch")
-                plt.close(fig)
-                st.caption("Se muestran solo los primeros niveles del Árbol de Decisión para facilitar la lectura.")
+                    ui.grafica('¿Qué equilibrio entre precisión y recall ofrece el modelo al variar el umbral?', pr, use_container_width=True)
+            # El árbol no se conserva: no evalúa necesariamente el clasificador seleccionado.
             st.caption("Visualizaciones recalculadas con el CSV y la misma partición que el notebook (semilla 42).")
         except Exception as exc:
             st.error(f"No se pudo preparar la evaluación: {exc}")
@@ -924,9 +929,12 @@ elif pagina == "📣 Campañas de retención":
                "Señal preventiva: 15–30 días sin acceso. Los límites son reglas operativas propuestas, "
                "no umbrales optimizados de clasificación. El umbral binario de 0.50 del simulador no cambia.")
 
-    laura, andres, sofia, medicion = st.tabs([
-        "Laura · Gerencia", "Andrés · Campañas CRM", "Sofía · Calidad", "Medición · Prueba A/B"
-    ])
+    if rol == "gerencia":
+        laura = st.container()
+    else:
+        laura, andres, sofia, medicion = st.tabs([
+            "Laura · Gerencia", "Andrés · Campañas CRM", "Sofía · Calidad", "Medición · Prueba A/B"
+        ])
     with laura:
         ui.seccion("Cartera de retención y prioridades")
         altos = camp[camp["Prioridad"].eq("Alto")]
@@ -943,10 +951,10 @@ elif pagina == "📣 Campañas de retención":
         with l:
             dist = camp["Prioridad"].value_counts().reindex(["Bajo", "Medio", "Alto"], fill_value=0)
             fig = px.bar(x=dist.index, y=dist.values, color=dist.index,
-                         color_discrete_map={"Bajo": VERDE, "Medio": "#F5A524", "Alto": ROJO},
+                         color_discrete_map={"Bajo": VERDE, "Medio": AMBAR, "Alto": ROJO},
                          labels={"x": "Prioridad", "y": "Clientes"}, title="Clientes por prioridad de retención")
             fig.update_layout(showlegend=False, height=330)
-            st.plotly_chart(fig, use_container_width=True, key="camp_prioridad")
+            ui.grafica('¿Cuántos clientes requieren cada nivel de atención para dimensionar la campaña?', fig, use_container_width=True, key="camp_prioridad")
         with r:
             resumen = camp.groupby("subscription_type", as_index=False).agg(
                 Clientes=("ID cliente", "size"),
@@ -958,7 +966,7 @@ elif pagina == "📣 Campañas de retención":
                          color_discrete_sequence=[ROJO], title="Prioridad alta por plan",
                          labels={"subscription_type": "Plan", "Alta": "Clientes"})
             fig.update_layout(height=330)
-            st.plotly_chart(fig, use_container_width=True, key="camp_plan")
+            ui.grafica('¿En qué plan hay más clientes de prioridad alta para asignar recursos?', fig, use_container_width=True, key="camp_plan")
             st.dataframe(resumen.style.format({"Score_medio": "{:.1%}", "Proporción alta": "{:.1%}"}),
                          hide_index=True, use_container_width=True)
         if clusters_disponibles:
@@ -992,6 +1000,10 @@ elif pagina == "📣 Campañas de retención":
                    "− costo de contacto. Supone el descuento para todo cliente tratado; no estima margen, "
                    "causalidad ni rentabilidad real. Requiere calibración y evidencia experimental.")
 
+    if rol != "analista":
+        st.caption("CRM, registros individuales y asignación A/B requieren el rol analista.")
+        ui.pie(["Dataset del proyecto", "Resultados del notebook"])
+        st.stop()
     with andres:
         ui.seccion("Diseñar una audiencia de campaña")
         a, b, c = st.columns(3)
@@ -1015,6 +1027,11 @@ elif pagina == "📣 Campañas de retención":
         capacidad = st.number_input("Capacidad máxima de la audiencia (clientes)", min_value=1,
                                      max_value=max(1, len(camp)), value=min(500, len(camp)), step=1, key="camp_capacidad")
         audiencia = seleccion.head(int(capacidad)).copy()
+        st.caption(f"Campañas: {', '.join(tipos_camp) or 'Ninguna'} · Planes: {', '.join(planes_camp) or 'Ninguno'} · Segmentos: {', '.join(segmentos_camp) or 'Ninguno'} · Solo zona crítica: {'Sí' if solo_critica else 'No'}")
+        if audiencia.empty:
+            st.info("No hay clientes con los filtros seleccionados. Ajusta la audiencia.")
+            st.caption("Audiencia seleccionada: 0 clientes")
+            st.stop()
         k1, k2, k3 = st.columns(3)
         k1.metric("Clientes elegibles", f"{len(seleccion):,}")
         k2.metric("Audiencia seleccionada", f"{len(audiencia):,}")
@@ -1049,11 +1066,11 @@ elif pagina == "📣 Campañas de retención":
         st.warning("No se puede comprobar con esta fotografía histórica si las variables fueron registradas "
                    "antes del abandono. No lanzar campañas reales hasta verificar fechas, clientes activos, "
                    "calidad, permisos de contacto y desempeño fuera de muestra.")
-        fig = px.histogram(camp, x="Score", color="Prioridad", nbins=25,
-                           color_discrete_map={"Bajo": VERDE, "Medio": "#F5A524", "Alto": ROJO},
-                           title="Distribución de puntuaciones del modelo (muestra histórica)")
+        fig = px.histogram(camp, x="Score", facet_col="Prioridad", nbins=25,
+                           color_discrete_sequence=[AZUL],
+                           title="Distribución de puntuaciones por prioridad (muestra histórica)")
         fig.update_xaxes(tickformat=".0%", range=[0, 1])
-        st.plotly_chart(fig, use_container_width=True, key="camp_scores")
+        ui.grafica('¿Cómo se distribuyen los scores por prioridad para revisar la cartera?', fig, use_container_width=True, key="camp_scores")
 
     with medicion:
         ui.seccion("Diseñar prueba controlada de retención")
@@ -1120,7 +1137,7 @@ elif pagina == "🎯 Predecir abandono":
     # Niveles de riesgo: mismos umbrales que las reglas de decisión del documento de SAS (sección 5).
     NIVELES = [  # (límite inferior, nombre, color, acción sugerida)
         (.60, "Alto", ROJO, "Intervención prioritaria: oferta de retención y contacto personalizado."),
-        (.30, "Medio", "#F5A524", "Atención preventiva: campaña de reactivación sin descuento."),
+        (.30, "Medio", AMBAR, "Atención preventiva: campaña de reactivación sin descuento."),
         (0.0, "Bajo", VERDE, "Seguimiento normal: mantener la estrategia actual."),
     ]
 
@@ -1187,12 +1204,11 @@ elif pagina == "🎯 Predecir abandono":
             mode="gauge+number", value=prob * 100, number={"suffix": " %", "valueformat": ".1f"},
             title={"text": "Probabilidad de abandono"},
             gauge={"axis": {"range": [0, 100], "ticksuffix": " %"}, "bar": {"color": color, "thickness": .3},
-                   "steps": [{"range": [0, 30], "color": "#1E3A28"}, {"range": [30, 60], "color": "#3D3218"},
-                             {"range": [60, 100], "color": "#4A1A1D"}],
-                   "threshold": {"line": {"color": "white", "width": 3}, "value": 50}}))
+                    "bgcolor": COLORES["tarjeta"], "bordercolor": COLORES["borde"], "borderwidth": 1,
+                    "threshold": {"line": {"color": COLORES["blanco"], "width": 3}, "value": 50}}))
         gauge.update_layout(height=280, margin=dict(l=40, r=40, t=60, b=10), paper_bgcolor="rgba(0,0,0,0)")
-        st.plotly_chart(gauge, use_container_width=True)
-        st.caption("Franjas: bajo < 30 %, medio 30–59 %, alto ≥ 60 %. Línea blanca: umbral de 50 % del modelo.")
+        ui.grafica('¿Qué riesgo estima el modelo para el perfil y qué prioridad corresponde?', gauge, use_container_width=True)
+        st.caption("Bajo < 30 %, medio 30–59 %, alto ≥ 60 %. Línea blanca: umbral de 50 % del modelo.")
     with der:
         r1, r2 = st.columns(2)
         r1.metric("Nivel de riesgo", nivel)
@@ -1236,10 +1252,10 @@ elif pagina == "🎯 Predecir abandono":
             rango = max(abs(contribuciones).max() * 1.35, .5)
             fig.update_layout(title=dict(text="Contribución de cada variable (SHAP)", x=0, font=dict(size=15)),
                               xaxis=dict(title="← reduce el riesgo · aumenta el riesgo →", range=[-rango, rango],
-                                         zeroline=True, zerolinecolor="#777"),
+                                         zeroline=True, zerolinecolor=COLORES["borde"]),
                               height=300, margin=dict(l=0, r=20, t=45, b=10),
                               paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig, use_container_width=True)
+            ui.grafica('¿Qué variables aumentan o reducen la predicción de abandono?', fig, use_container_width=True)
         with e2:
             sube = contribuciones[contribuciones > 0].sort_values(ascending=False)
             baja = contribuciones[contribuciones < 0].sort_values()
@@ -1260,12 +1276,12 @@ elif pagina == "🎯 Predecir abandono":
 
     def curva(xs, ys, actual_x, titulo, eje_x):
         fig = go.Figure()
-        for y0, y1, c in [(0, 30, "rgba(70,211,105,.08)"), (30, 60, "rgba(245,165,36,.08)"),
-                          (60, 100, "rgba(229,9,20,.10)")]:
-            fig.add_hrect(y0=y0, y1=y1, fillcolor=c, line_width=0)
+        for limite_riesgo in (30, 60):
+            fig.add_hline(y=limite_riesgo, line_dash="dot", line_color=GRIS,
+                          annotation_text=f"Umbral {limite_riesgo} %")
         fig.add_trace(go.Scatter(x=xs, y=[v * 100 for v in ys], mode="lines", line=dict(color=ROJO, width=3),
                                  hovertemplate=eje_x + ": %{x}<br>Riesgo: %{y:.1f} %<extra></extra>"))
-        fig.add_trace(go.Scatter(x=[actual_x], y=[prob * 100], mode="markers", marker=dict(size=12, color="white"),
+        fig.add_trace(go.Scatter(x=[actual_x], y=[prob * 100], mode="markers", marker=dict(size=12, color=COLORES["blanco"]),
                                  hovertemplate="Cliente actual: %{y:.1f} %<extra></extra>"))
         fig.update_layout(title=dict(text=titulo, x=0, font=dict(size=15)), showlegend=False, height=300,
                           xaxis_title=eje_x, yaxis=dict(title="Probabilidad de abandono (%)", range=[0, 100]),
@@ -1275,10 +1291,10 @@ elif pagina == "🎯 Predecir abandono":
 
     w1, w2 = st.columns(2)
     with w1:
-        st.plotly_chart(curva(rango_dias, curva_dias, valores["dias"], "Si cambian los días sin acceso",
+        ui.grafica('¿Cómo cambia el riesgo estimado si varían los días sin acceso?', curva(rango_dias, curva_dias, valores["dias"], "Si cambian los días sin acceso",
                               "Días desde el último acceso"), use_container_width=True)
     with w2:
-        st.plotly_chart(curva(rango_horas, curva_horas, min(valores["horas"], 40), "Si cambian las horas vistas",
+        ui.grafica('¿Cómo cambia el riesgo estimado si varían las horas vistas?', curva(rango_horas, curva_horas, min(valores["horas"], 40), "Si cambian las horas vistas",
                               "Horas vistas (h)"), use_container_width=True)
     prob_hoy = probabilidad(vector(valores["horas"], 0, valores["perfiles"], valores["plan"]))
     st.write(f"Si este cliente volviera a entrar hoy (0 días sin acceso) y conservara sus demás datos, su riesgo "
