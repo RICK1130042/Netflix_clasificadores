@@ -1,0 +1,32 @@
+PAQUETE DE CAMBIOS — NETFLIX ENTREGABLE 3
+
+1. Extrae el ZIP fuera del repositorio (por ejemplo, en Descargas).
+2. En GitHub Desktop crea una rama desde main, llamada entregable-3.
+3. Abre el repositorio en VS Code y su terminal. Ejecuta desde su raíz:
+   python3 ~/Downloads/netflix_entregable3/aplicar_entregable3.py
+   Ajusta Downloads a la ruta donde lo extrajiste.
+4. Revisa git diff y los archivos nuevos. Si la versión no coincide, el script
+   se detiene; no lo fuerces. Las modificaciones se diseñaron contra app.py
+   de 1292 líneas. No se hace ningún commit ni push.
+5. Configura las cuentas ficticias en .streamlit/secrets.toml local (ignorado)
+   y en Streamlit Cloud > Manage app > Settings > Secrets. Formato TOML:
+   [usuarios.gerencia_demo]
+   rol = "gerencia"
+   password = "REEMPLAZAR_CON_CLAVE_PRIVADA_DISTINTA"
+   [usuarios.analista_demo]
+   rol = "analista"
+   password = "REEMPLAZAR_CON_OTRA_CLAVE_PRIVADA"
+   No publiques este archivo ni estas contraseñas. Usa valores únicos y robustos.
+6. Ejecuta python3 -m unittest discover -s tests -v y streamlit run app.py.
+7. Verifica ambos roles, cierre de sesión, filtros vacíos, permisos y colores
+   en navegador; completa los pendientes de docs/entregable-3.md y prompts/B3.md.
+8. Commit/push; abre PR, espera WCAG contrast verde, configura comprobación
+   obligatoria para main si es posible, integra y comprueba Cloud.
+9. En docs/entregable-3.md sustituye la primera línea por la corrida verde real.
+   Tras el commit de documentación verifica la nueva corrida. Entrega la URL
+   del repositorio y comparte credenciales de demostración por un canal privado.
+
+Pruebas realizadas al preparar este paquete: unittest de contraste y tema
+(3 pruebas aprobadas). Sintaxis de los módulos nuevos y del aplicador comprobada.
+No se ejecutó el dashboard completo ni se escribió en el repositorio remoto.
+La aplicación de cambios y pruebas funcionales siguen pendientes.
