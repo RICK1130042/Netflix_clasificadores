@@ -78,3 +78,11 @@ Las evidencias de SAS se pueden organizar en carpetas para conservar las gráfic
 **Dataset:** Netflix Customer Churn and Engagement — Kaggle.
 
 **Proyecto académico:** Tecnológico de Monterrey | Analítica de Datos e Inteligencia Artificial — Equipo 1.
+
+## Revisión de evidencias del 26 de noviembre
+
+- [Auditoría, cambios y pendientes del equipo](docs/auditoria-entrega.md).
+- [Corridas reales de CI y demostraciones negativas](docs/evidencia-ci.md).
+- [Objetivo de negocio propuesto](negocio.md) y [observaciones del 21 de octubre](docs/observaciones-21-oct.md).
+
+Desde la raíz: `python -m unittest discover -s tests -v`. Validar fuente: `python scripts/validar_contrato.py --csv netflix_customer_churn.csv`; validar preparado: `python scripts/validar_contrato.py --csv data/prepared/netflix_limpio.csv`. No modifican entradas. La suite usa datos sintéticos; los archivos publicados incumplen actualmente el límite de 24 horas en 10 registros. No confundir ese fallo real con la demostración deliberada aislada.

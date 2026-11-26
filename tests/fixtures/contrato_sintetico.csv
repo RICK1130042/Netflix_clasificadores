@@ -1,0 +1,3 @@
+customer_id,age,gender,subscription_type,watch_hours,last_login_days,region,device,monthly_fee,churned,payment_method,number_of_profiles,avg_watch_time_per_day,favorite_genre
+c-001,31,Female,Basic,14.73,29,Africa,TV,8.99,1,Card,1,0.49,Drama
+c-002,47,Male,Premium,13.8,0,Europe,Mobile,17.99,0,PayPal,3,2.0,Comedy

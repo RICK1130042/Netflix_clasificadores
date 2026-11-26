@@ -1,3 +1,5 @@
+> Estado auditado 26-nov-2026: esta guía contenía rutas y funcionalidades propuestas sin integrar. Consultar [auditoría actual](../docs/auditoria-entrega.md) y [corridas reales](../docs/evidencia-ci.md). No usar los comandos históricos de exportación/integración inexistentes.
+
 
 
 ## ✅ Entregable B2 — Build y Test: contrato de datos del dashboard

@@ -659,8 +659,9 @@ elif pagina == "📊 Explorar clientes":
         tabla_seg = seg.rename(columns={col: "Segmento", "clientes": "Clientes", "cancelan": "Cancelan"})
         st.dataframe(tabla_seg[["Segmento", "Clientes", "Cancelan", "Abandono (%)"]]
                      .style.format({"Clientes": "{:,}", "Cancelan": "{:,}", "Abandono (%)": "{:.1f} %"}),
-                     hide_index=True, width="stretch")
-        st.caption("Tasa = clientes que cancelan / total de clientes del mismo segmento. "
+                     hide_index=True, column_order=["Segmento", "Clientes", "Cancelan", "Abandono (%)"], width="stretch")
+        st.caption("CALCULADO · fuente: CSV activo del dashboard; agrupación por segmento. "
+                   "Tasa = clientes que cancelan / total de clientes del mismo segmento. "
                    "Ordenado de mayor a menor abandono.")
         brecha = seg["Abandono (%)"].max() - seg["Abandono (%)"].min()
         st.write(f"**{seg.iloc[0][col]}** es el segmento con más abandono ({seg.iloc[0]['Abandono (%)']:.1f} %). "

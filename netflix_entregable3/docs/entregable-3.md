@@ -1,3 +1,5 @@
+> Paquete histórico; la versión auditada vive en la raíz del repositorio: docs/entregable-3.md. No entregar este duplicado como evidencia actual.
+
 [PENDIENTE: sustituir por la URL de la corrida CI exitosa del commit entregado](https://github.com/RICK1130042/Netflix_clasificadores/actions)
 
 # Entregable 3 — Netflix Customer Churn Analytics

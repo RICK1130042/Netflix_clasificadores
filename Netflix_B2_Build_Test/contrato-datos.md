@@ -100,3 +100,7 @@ Los CSV del repositorio se leen con tipos explícitos; el control exige numéric
 - `README.md`, `app.py`, `scripts/data_pipeline.py` y datos originales, repositorio `RICK1130042/Netflix_clasificadores` (consulta de `main`, 15-nov-2026).
 - `Netflix Abandono.pdf`, pp. 2–10 (resultados Random Forest y capturas SAS).
 - `python scripts/validar_contrato.py`: falla con salida 1 si se rompe este contrato.
+
+## Auditoría ejecutable 26-nov-2026
+
+La página de Calidad del dato descrita arriba no está integrada en app.py raíz. Los comandos se ejecutan ahora desde la raíz con validacion_datos.py y scripts/validar_contrato.py; no existe validar_exportaciones.py. El contrato rechaza 10 valores avg_watch_time_per_day superiores a 24, tanto en fuente como preparado. No se alteran datos ni límites para obtener verde. Detalles y responsabilidades pendientes: ../docs/auditoria-entrega.md y ../docs/observaciones-21-oct.md.

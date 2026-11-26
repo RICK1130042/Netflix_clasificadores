@@ -1,4 +1,4 @@
-[PENDIENTE: sustituir por la URL de la corrida CI exitosa del commit entregado](https://github.com/RICK1130042/Netflix_clasificadores/actions)
+[CI contraste verde de la base revisada · 23585af](https://github.com/RICK1130042/Netflix_clasificadores/actions/runs/45721406065)
 
 # Entregable 3 — Netflix Customer Churn Analytics
 
@@ -84,3 +84,7 @@ Se mantienen además la agrupación por variable y los controles de diseño de a
 Limitación: autenticación académica de dos roles en una aplicación Streamlit; no es un IAM empresarial. No incorpora MFA, gestión de contraseñas, limitación persistente de intentos, auditoría centralizada ni autorización a nivel de almacenamiento. El repositorio público y sus archivos no se protegen mediante el login de Streamlit. No deben contener datos personales reales; antes de entregar verificar procedencia, privacidad y acceso directo a CSV. Usar cuentas ficticias. Para producción, integrar proveedor de identidad, almacenamiento privado, controles de acceso sobre datos y auditoría.
 
 **PENDIENTE:** contrastar esta matriz con las personas y permisos de la propuesta de octubre y la Investigación 3. Registrar prueba de inicio/cierre de sesión y cambio de rol en Cloud. Añadir evidencia de la Investigación 3 y completar `prompts/B3.md` según las instrucciones originales del curso.
+
+## Auditoría posterior
+
+Véase [auditoría de entrega](auditoria-entrega.md) y [evidencia CI](evidencia-ci.md). La primera liga acredita la base; las corridas de la revisión se identifican por su propio SHA. Los pendientes de investigación y autoría no se consideran cerrados.
