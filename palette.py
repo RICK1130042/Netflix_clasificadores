@@ -1,7 +1,7 @@
 """Tokens de diseño utilizados por la app y las pruebas WCAG."""
 COLORES = {
     'rojo': '#FF6B6B', 'fondo': '#111318', 'tarjeta': '#1B1F27',
-    'borde': '#788394', 'texto': '#111318', 'texto_suave': '#B9BEC8',
+    'borde': '#788394', 'texto': '#F5F6FA', 'texto_suave': '#B9BEC8',
     'verde': '#46D369', 'ambar': '#F5A524', 'gris': '#9AA0AA',
     'azul': '#56B4E9', 'negro': '#111318', 'blanco': '#FFFFFF',
 }
