@@ -1,5 +1,7 @@
 # Evidencia CI — 26 de noviembre de 2026
 
+> Registro histórico de la primera revisión. La [entrega final](entrega-final.md) usa un CSV derivado validado. El hallazgo de la fuente original y las corridas históricas se conservan como evidencia.
+
 Repositorio: RICK1130042/Netflix_clasificadores. Base main: `23585afd949a2adba573bd8b74bfb82e3630e497`. Rama de entrega: `revision/entrega-evidencias-2026-11-26`. Rama de demostración: `prueba/ci-negativo-2026-11-26` (no fusionar).
 
 ## Pruebas de roles, tabla y regresión

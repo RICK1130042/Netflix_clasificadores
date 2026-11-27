@@ -1,5 +1,7 @@
 # Seguimiento de observaciones del 21 de octubre
 
+> Registro histórico de la primera revisión. La [entrega final](entrega-final.md) usa un CSV derivado validado. El hallazgo de la fuente original y las corridas históricas se conservan como evidencia.
+
 ## O-1 — fuente: retroalimentación docente, criterio C
 Qué observaron: demostrar que los roles funcionan.
 Qué cambió: `tests/test_roles.py` ejecuta auth.py en Streamlit AppTest, inicia sesión con ambos roles y recorre sus páginas, rechaza credenciales/rol inválidos, fuerza acceso prohibido y prueba salida/cambio de rol. `tests/test_tabla.py` verifica el orden del control de acceso en app.py.

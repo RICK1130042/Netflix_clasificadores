@@ -1,5 +1,7 @@
 # Auditoría de entrega — 26 de noviembre de 2026
 
+> Registro histórico de la primera revisión. La [entrega final](entrega-final.md) usa un CSV derivado validado. El hallazgo de la fuente original y las corridas históricas se conservan como evidencia.
+
 Base revisada: main `23585afd949a2adba573bd8b74bfb82e3630e497`. Retroalimentación completa recuperada del último mensaje de la conversación «Entregar repositorio GitHub». Cambios preparados en rama independiente. No se modifica main, configuración de Cloud, modelo, datasets, pipeline de preparación ni credenciales del host.
 
 | Requisito | Hallazgo y cambio verificable | Pendiente del equipo |

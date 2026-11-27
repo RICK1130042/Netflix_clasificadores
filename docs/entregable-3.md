@@ -52,7 +52,7 @@ Fuente normativa: [WCAG 2.2](https://www.w3.org/TR/WCAG22/), criterios 1.4.1, 1.
 
 El resumen ejecutivo usa KPI de abandono y tamaño de población, luego evidencia gráfica, interpretaciones y notas metodológicas. Se prioriza el mensaje con tamaño, peso, posición y espaciado en lugar de solo color. Los detalles técnicos se reservan para la sección de modelos.
 
-**PENDIENTE DEL EQUIPO:** citar el autor, título, año, URL y hallazgo concreto de la Investigación 1; explicar qué decisión visual se deriva de ese hallazgo. No sustituir por una referencia inventada. Verificar la posición de los KPI en la versión desplegada.
+[Investigación 1, revisión final](../investigacion/01-jerarquia.md). La jerarquía conserva indicadores primero y metodología después.
 
 ## 4. Estado vacío y `st.stop()`
 
@@ -83,7 +83,7 @@ Se mantienen además la agrupación por variable y los controles de diseño de a
 
 Limitación: autenticación académica de dos roles en una aplicación Streamlit; no es un IAM empresarial. No incorpora MFA, gestión de contraseñas, limitación persistente de intentos, auditoría centralizada ni autorización a nivel de almacenamiento. El repositorio público y sus archivos no se protegen mediante el login de Streamlit. No deben contener datos personales reales; antes de entregar verificar procedencia, privacidad y acceso directo a CSV. Usar cuentas ficticias. Para producción, integrar proveedor de identidad, almacenamiento privado, controles de acceso sobre datos y auditoría.
 
-**PENDIENTE:** contrastar esta matriz con las personas y permisos de la propuesta de octubre y la Investigación 3. Registrar prueba de inicio/cierre de sesión y cambio de rol en Cloud. Añadir evidencia de la Investigación 3 y completar `prompts/B3.md` según las instrucciones originales del curso.
+[Investigación 3, revisión final](../investigacion/03-acceso.md) y [matriz de acceso](../acceso.md). La evidencia automatizada figura en el índice de CI. Falta cotejo con la propuesta original de octubre y prueba manual en Cloud.
 
 ## Auditoría posterior
 

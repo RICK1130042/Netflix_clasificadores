@@ -1,0 +1,7 @@
+{
+  "sha256_fuente": "16e00950956f12921625001315dff2c450c9ca14af885cb19b4035b0b6fb311e",
+  "filas_fuente": 5000,
+  "filas_aceptadas": 4990,
+  "filas_excluidas_horas_diarias_mayores_24": 10,
+  "abandonos_aceptados": 2515
+}

@@ -1,88 +1,34 @@
 [Dashboard en Streamlit Cloud](https://rick1130042-netflix-clasificadores-app-rzfx7h.streamlit.app/)
 
-# 🎬 Netflix | Customer Churn Analytics Equipo 1
+# Netflix · Customer Churn Analytics · Equipo 1
 
-- Gabriel Castro Rivas | A01666946
-- Itzel Mejía Moreno | A01666393
-- Juan Carlos Muñoz Flores | A01712391
-- Kerstin Carmina Meister González | A01612699
-- Paola Estefanía Alvarez Santoyo | A01654416
-- Ricardo Villarreal Bazán | A01666859
+El tablero permite identificar segmentos con mayor abandono y preparar una prueba de retención. La población activa del tablero contiene 4,990 registros académicos y 2,515 abandonos observados (50.4%). La [meta del piloto](negocio.md) está documentada como propuesta.
 
+**Evaluación.** Abra el dashboard en ventana privada. La aplicación tiene cuentas de demostración para gerencia y analista. El equipo comparte esas credenciales de forma privada. La presentación final se entrega en Canvas.
 
-### 📊 Data Analytics & Machine Learning Project
+**Documentación viva.** [Sitio de la entrega](https://rick1130042.github.io/Netflix_clasificadores/) · [Pipeline de publicación](https://github.com/RICK1130042/Netflix_clasificadores/actions/workflows/documentacion.yml).
 
-## 📌 Descripción del proyecto
-
-Este proyecto tiene como objetivo analizar el comportamiento de los usuarios de **Netflix**, identificar patrones relacionados con la cancelación de suscripciones (*Customer Churn*) y desarrollar modelos de Machine Learning que permitan clasificar a los clientes según su permanencia o abandono del servicio.
-
-Se utiliza el dataset **Netflix Customer Churn and Engagement**, obtenido de Kaggle, que contiene **5,000 registros y 14 variables originales**.
-
-## 🎯 Objetivos e hipótesis
-
-- Realizar un análisis exploratorio de datos (EDA) para comprender el comportamiento de los suscriptores.
-- Identificar y seleccionar las variables más relevantes para el análisis predictivo.
-- Analizar si una menor actividad de visualización y mayores periodos de inactividad se relacionan con el abandono.
-- Comparar diferentes modelos de clasificación supervisada.
-- Evaluar la capacidad de **Random Forest** para identificar usuarios con `churned = 1`, buscando un F1-Score y Recall iguales o superiores a 0.90.
-
-## 📊 Variables del modelo
-
-**Variable objetivo:** `churned`
-
-- `0` — El usuario permanece suscrito.
-- `1` — El usuario canceló su suscripción.
-
-**Variables predictoras seleccionadas:**
-
-`age`, `watch_hours`, `last_login_days`, `subscription_type`, `device`, `payment_method`, `number_of_profiles`, `avg_watch_time_per_day`.
-
-Estas características permiten estudiar los hábitos de consumo, la actividad y las condiciones de suscripción de los usuarios.
-
-## 🛠️ Tecnologías utilizadas
-
-- **Python:** Análisis y procesamiento de datos.
-- **Pandas y NumPy:** Manipulación y preparación del dataset.
-- **Matplotlib, Seaborn y Plotly:** Visualización de datos.
-- **Scikit-learn:** Entrenamiento y evaluación de modelos predictivos.
-- **SAS:** Análisis estadístico y trabajo con modelos de clasificación.
-- **Streamlit:** Desarrollo de dashboards interactivos.
-- **Jupyter Notebook:** Desarrollo y documentación del análisis.
-
-## 🤖 Modelos de Machine Learning
-
-Se compararon seis algoritmos de clasificación:
-
-**Naive Bayes · KNN · Decision Tree · Random Forest · Neural Networks (MLP) · SVM**
-
-En la evaluación original, **Random Forest** presentó el mejor F1-Score:
-
-| Métrica | Resultado |
+| Artefacto | Dónde encontrarlo |
 |---|---|
-| Accuracy | 94.20% |
-| Precision | 92.22% |
-| Recall | 96.62% |
-| F1-Score | 94.37% |
-| ROC-AUC | 99.21% |
+| App, dependencias y datos | [app.py](app.py), [requirements.txt](requirements.txt), [datos/](datos/) |
+| Decisión, línea base y meta | [negocio.md](negocio.md) |
+| Contratos | [Prompt](contrato-prompt.md) · [Datos](contrato-datos.md) |
+| Gráficas, jerarquía y accesibilidad | [Fichas](graficas.md) · [Evidencia B3](docs/entregable-3.md) |
+| Acceso y datos sensibles | [Matriz](acceso.md) · [Pruebas de roles](tests/test_roles.py) |
+| Prompts | [B1](prompts/B1.md) · [B2](prompts/B2.md) · [B3](prompts/B3.md) · [B4](prompts/B4.md) · [Análisis por etapa](prompts/analisis-sdlc.md) |
+| Investigaciones | [SDLC](investigacion/00-sdlc-genai.md) · [Jerarquía](investigacion/01-jerarquia.md) · [Contraste](investigacion/02-contraste.md) · [Acceso](investigacion/03-acceso.md) · [Métricas](investigacion/04-metricas.md) |
+| Paleta y convenciones | [estilos.py](estilos.py) · [CLAUDE.md](CLAUDE.md) |
+| Evolución del diseño | [Design thinking y capturas](docs/design-thinking.md) |
+| Regresión y retroalimentación | [Corridas](docs/evidencia-ci.md) · [Observaciones de octubre](docs/observaciones-21-oct.md) · [Estado final](docs/entrega-final.md) |
 
-*Estos resultados corresponden a la comparación experimental realizada; aún requieren validación independiente para confirmar su capacidad de predicción futura.*
+## Verificación local
 
-## 📂 Documentación y evidencias
+```sh
+python -m pip install -r requirements.txt
+python scripts/preparar_entrega.py --check
+python scripts/validar_contrato.py --csv datos/netflix_validado.csv
+python -m unittest discover -s tests -v
+streamlit run app.py
+```
 
-El repositorio contempla los análisis realizados en Python y SAS, junto con la documentación de las hipótesis, visualizaciones, resultados de los modelos y capturas de los procedimientos utilizados.
-
-Las evidencias de SAS se pueden organizar en carpetas para conservar las gráficas y resultados sin sobrecargar el README principal.
-
----
-
-**Dataset:** Netflix Customer Churn and Engagement — Kaggle.
-
-**Proyecto académico:** Tecnológico de Monterrey | Analítica de Datos e Inteligencia Artificial — Equipo 1.
-
-## Revisión de evidencias del 26 de noviembre
-
-- [Auditoría, cambios y pendientes del equipo](docs/auditoria-entrega.md).
-- [Corridas reales de CI y demostraciones negativas](docs/evidencia-ci.md).
-- [Objetivo de negocio propuesto](negocio.md) y [observaciones del 21 de octubre](docs/observaciones-21-oct.md).
-
-Desde la raíz: `python -m unittest discover -s tests -v`. Validar fuente: `python scripts/validar_contrato.py --csv netflix_customer_churn.csv`; validar preparado: `python scripts/validar_contrato.py --csv data/prepared/netflix_limpio.csv`. No modifican entradas. La suite usa datos sintéticos; los archivos publicados incumplen actualmente el límite de 24 horas en 10 registros. No confundir ese fallo real con la demostración deliberada aislada.
+El proyecto usa secretos locales o de Streamlit Cloud para las cuentas. Las pruebas usan cuentas efímeras propias. Consulte el [contrato](contrato-datos.md) para reproducir la preparación y distinguir las métricas históricas de la evaluación sobre el CSV activo.

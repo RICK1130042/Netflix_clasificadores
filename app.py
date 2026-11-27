@@ -44,7 +44,7 @@ from threadpoolctl import threadpool_limits
 
 # ─── Configuración del proyecto ─────────────────────────────────────────────
 ROOT = Path(__file__).resolve().parent
-CSV_FILE = ROOT / "netflix_customer_churn.csv"
+CSV_FILE = ROOT / "datos" / "netflix_validado.csv"
 MODEL_FILE = ROOT / "modelo_churn_netflix.joblib"
 CV_FILE = ROOT / "comparacion_validacion_cruzada.csv"
 TEST_FILE = ROOT / "comparacion_modelos_churn.csv"
@@ -396,7 +396,7 @@ if CSV_FILE.exists():
     except Exception as exc:
         st.error(f"No fue posible leer el CSV: {exc}")
 else:
-    st.sidebar.caption("No se encontró netflix_customer_churn.csv en esta carpeta.")
+    st.sidebar.caption("No se encontró datos/netflix_validado.csv en el repositorio.")
     archivo = st.sidebar.file_uploader("Cargar dataset CSV", type="csv") if rol == "analista" else None
     if archivo is not None:
         try:
@@ -445,11 +445,12 @@ ui.marca("CHURN ANALYTICS · MODELOS DE CLASIFICACIÓN")
 pagina = st.sidebar.radio("Navegación", auth.PAGINAS[rol], label_visibility="collapsed", key="navegacion")
 auth.exigir_pagina(rol, pagina)
 st.sidebar.divider()
+st.sidebar.caption("Fuente de entrega: datos/netflix_validado.csv · tratamiento en contrato-datos.md")
 st.sidebar.caption(f"Dataset: {'disponible' if df is not None else 'sin cargar'}")
 if fecha_datos:
     st.sidebar.caption(f"Datos actualizados al: {fecha_datos:%d/%m/%Y}")
 st.sidebar.caption(f"Modelo exportado: {bundle['nombre_modelo'] if bundle else 'sin cargar'}")
-st.sidebar.caption("Fuente de métricas: notebook netflix_churned · prueba 80/20 · CV 5 folds")
+st.sidebar.caption("Métricas exportadas: cohorte histórica de 5,000 filas · prueba 80/20 · CV 5 folds")
 
 
 
@@ -824,7 +825,7 @@ elif pagina == "🤖 Comparar modelos":
                                      yaxis_title="Precision", height=345)
                     ui.grafica('¿Qué equilibrio entre precisión y recall ofrece el modelo al variar el umbral?', pr, use_container_width=True)
             # El árbol no se conserva: no evalúa necesariamente el clasificador seleccionado.
-            st.caption("Visualizaciones recalculadas con el CSV y la misma partición que el notebook (semilla 42).")
+            st.caption("Visualizaciones recalculadas con el CSV activo: split 80/20, semilla 42. Sus filas pueden diferir de la evaluación histórica.")
         except Exception as exc:
             st.error(f"No se pudo preparar la evaluación: {exc}")
             
@@ -1304,5 +1305,5 @@ elif pagina == "🎯 Predecir abandono":
                "recalculan con la misma fórmula. El punto blanco es el cliente actual (en horas se muestra hasta 40 h). "
                "Son escenarios del modelo, no efectos garantizados de una acción.")
 
-ui.pie(["notebook netflix_churned.ipynb", "netflix_customer_churn.csv (Kaggle)",
+ui.pie(["notebook netflix_churned.ipynb", "datos/netflix_validado.csv (derivado de la fuente académica)",
         f"datos al {fecha_datos:%d/%m/%Y}" if fecha_datos else "fecha no disponible"])

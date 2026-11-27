@@ -21,7 +21,7 @@ jobs:
       - name: Regresión de datos, roles, contraste y tabla
         run: python -m unittest discover -s tests -v
       - run: python -m py_compile app.py auth.py validacion_datos.py scripts/validar_contrato.py
-  fuente-publicada:
+  preflight-entrega:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,8 +31,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install 'pandas>=2.2,<3'
-      - name: Contrato del CSV original
-        run: python scripts/validar_contrato.py --csv netflix_customer_churn.csv
-      - name: Contrato del CSV preparado
-        if: always()
-        run: python scripts/validar_contrato.py --csv data/prepared/netflix_limpio.csv
+      - name: Reproducir y comprobar la preparación
+        run: python scripts/preparar_entrega.py --check
+      - name: Validar CSV que usa el tablero
+        run: python scripts/validar_contrato.py --csv datos/netflix_validado.csv
