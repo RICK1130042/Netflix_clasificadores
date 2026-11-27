@@ -1,4 +1,4 @@
-[CI contraste verde de la base revisada · 23585af](https://github.com/RICK1130042/Netflix_clasificadores/actions/runs/45721406065)
+[CI contraste verde · implementación 671b431](https://github.com/RICK1130042/Netflix_clasificadores/actions/runs/45913842046)
 
 # Entregable 3 — Netflix Customer Churn Analytics
 

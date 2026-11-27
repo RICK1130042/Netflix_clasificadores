@@ -1,38 +1,21 @@
-> Estado auditado 26-nov-2026: esta guía contenía rutas y funcionalidades propuestas sin integrar. Consultar [auditoría actual](../docs/auditoria-entrega.md) y [corridas reales](../docs/evidencia-ci.md). No usar los comandos históricos de exportación/integración inexistentes.
+# B2 — Contrato de datos y evidencia ejecutable
 
+El contrato vive en [contrato-datos.md](contrato-datos.md); investigación existente: [investigacion/claude.md](investigacion/claude.md). Revisión actual: [auditoría](../docs/auditoria-entrega.md) y [corridas reales](../docs/evidencia-ci.md).
 
+Desde la raíz del repositorio:
 
-## ✅ Entregable B2 — Build y Test: contrato de datos del dashboard
-
-El contrato documentado en [`contrato-datos.md`](contrato-datos.md) cubre las columnas originales del CSV y las columnas publicadas por el dashboard, sus unidades, fuente, vacíos y distinción **DATO/CALCULADO/SIMULADO**. Las decisiones de metodología se explican en [`investigacion/claude.md`](investigacion/claude.md) y en [`CLAUDE.md`](CLAUDE.md).
-
-### Verificaciones antes de presentar el dashboard
-
-```bash
+```sh
 python scripts/validar_contrato.py --csv netflix_customer_churn.csv
-python scripts/validar_exportaciones.py
+python scripts/validar_contrato.py --csv data/prepared/netflix_limpio.csv
 python -m unittest discover -s tests -v
-streamlit run app.py
 ```
 
-El validador central reconoce **14 campos originales**, convierte columnas numéricas sin pérdida silenciosa y detiene el dibujo si encuentra errores. La nueva página **🧪 Calidad del dato** enseña el resultado y ofrece una tabla con cuota mensual en tipo decimal, ordenamiento numérico, `column_order` y `hide_index=True`.
+El workflow ahora vive en `.github/workflows/calidad-datos.yml` raíz. Usa el validador raíz y las pruebas de tests/. La copia del validador en esta subcarpeta queda como evidencia histórica B2, no es la que ejecuta CI.
 
-Los controles de `.github/workflows/calidad-datos.yml` se ejecutan en cada `push` y `pull_request`. Para que GitHub **impida fusionar** un PR con checks rojos, configurar en la protección de la rama `main` el job requerido `contrato-de-datos`.
+La suite sintética y de roles pasa; fuente/preparado incumplen el máximo de 24 horas en 10 valores de avg_watch_time_per_day. No hay aprobación integral de datos. La app raíz conserva su validador reducido y no tiene una página Calidad del dato. No existen scripts/validar_exportaciones.py ni scripts/integrar_app.py en esta versión.
 
-### Evidencia de un cambio roto (llenar después de ejecutarlo)
+Las demostraciones roja/reversión usan únicamente tests/fixtures/contrato_sintetico.csv y palette.py en la rama prueba/ci-negativo-2026-11-26. No alteran el CSV publicado ni main. Las corridas, commits y límites de evidencia están en docs/evidencia-ci.md.
 
-- **Rama/PR de prueba:** `prueba-contrato-roto` (crearla para esta demostración; no dañar `main`).
-- **Error provocado:** texto `8.99 ERROR` en la columna `monthly_fee` de una fila del CSV original.
-- **Corrida fallida de GitHub Actions:** **PENDIENTE — REEMPLAZAR POR URL REAL DEL RUN FALLIDO**.
-- **Corrida corregida/aprobada:** **PENDIENTE — REEMPLAZAR POR URL REAL DEL RUN APROBADO**.
-- **Captura de la aplicación con estado del contrato:** **PENDIENTE — ver `evidencias/guia_evidencias.md`**.
+Las propuestas individuales existentes están en ideas/ y los avances en evidencias/. Para Ricardo: [ideas/A01666859.md](ideas/A01666859.md) y [evidencias/avance_A01666859.md](evidencias/avance_A01666859.md). No se cambian la propuesta ni las decisiones atribuidas a integrantes.
 
-Acceso al historial del workflow después de publicarlo: https://github.com/RICK1130042/Netflix_clasificadores/actions/workflows/calidad-datos.yml
-
-### Procedencia de métricas y limitaciones
-
-El CSV original del repositorio tiene 5,000 filas y 14 columnas. El PDF de la presentación muestra un experimento de Random Forest y capturas de SAS con denominadores distintos; **no combinar cifras de SAS y Python sin verificar filtros y definición**. En la app actual, Gradient Boosting fue elegido mediante validación cruzada en su experimento; la presentación original destacó Random Forest. Son resultados reportados de análisis diferentes. La app no demuestra impacto causal de intervenciones ni pronostica abandono temporal futuro sin validar fechas.
-
-### Evidencia individual
-
-La propuesta individual se encuentra en [`ideas/tu-matricula.md`](ideas/tu-matricula.md) (**renombrar este archivo por la matrícula real**). El avance de producto, captura y enlace de commit se documenta en [`evidencias/avance_individual.md`](evidencias/avance_individual.md).
+La fuente de métricas de Random Forest del README y la selección posterior del dashboard representan experimentos distintos; no se combinan cifras de SAS/Python ni se afirman efectos causales de campañas.

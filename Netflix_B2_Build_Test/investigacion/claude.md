@@ -51,3 +51,7 @@ Esto es importante para nuestro proyecto. No sabemos solo por mirar un archivo s
 4. Build, archivo `CLAUDE.md`: https://academy.claude.com/courses/ai-native-sdlc-playbook/claude-md
 
 **Nota metodológica:** los ejemplos de prompts se identificaron en conversaciones disponibles del proyecto; para una auditoría literal de autor, fecha y texto, contrastar con el historial exportado de cada integrante. No se atribuyen a personas prompts que no constan en la evidencia.
+
+## Nota de auditoría 26-nov-2026
+
+Los comandos y controles arriba describen la propuesta B2 histórica; scripts/validar_exportaciones.py y scripts/integrar_app.py no están en main. La corrección actual instala el CLI de contrato y mueve el workflow a raíz. La app no integra aún la barrera completa ni la página de calidad. Véanse ../../docs/auditoria-entrega.md y ../../docs/evidencia-ci.md para resultados reales; no interpretar las descripciones del proceso como prueba de ejecuciones previas.
