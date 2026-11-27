@@ -1,0 +1,37 @@
+name: Contrato de datos Netflix
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contrato-de-datos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install 'pandas>=2.2,<3' 'streamlit>=1.40,<2'
+      - name: Fixture sintético para demostración aislada
+        run: python scripts/validar_contrato.py --csv tests/fixtures/contrato_sintetico.csv
+      - name: Regresión de datos, roles, contraste y tabla
+        run: python -m unittest discover -s tests -v
+      - run: python -m py_compile app.py auth.py validacion_datos.py scripts/validar_contrato.py
+  preflight-entrega:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install 'pandas>=2.2,<3'
+      - name: Reproducir y comprobar la preparación
+        run: python scripts/preparar_entrega.py --check
+      - name: Validar CSV que usa el tablero
+        run: python scripts/validar_contrato.py --csv datos/netflix_validado.csv

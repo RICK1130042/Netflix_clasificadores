@@ -39,7 +39,7 @@ La **presentación "Netflix Abandono.pdf"** contiene además resultados de Rando
 
 ### 3. Columnas publicadas en las tablas y KPI del dashboard
 
-Estas columnas se **visualizan con nombres legibles** en la nueva página `🧪 Calidad del dato`. Los nombres técnicos de la sección 1 siguen siendo la fuente de verdad.
+Estas columnas describen la salida prevista del contrato. La página `🧪 Calidad del dato` no está integrada en app.py raíz; no se acredita su visualización. Los nombres técnicos de la sección 1 siguen siendo la fuente de verdad.
 
 | Nombre visible | Tipo | Unidad | Origen de la cifra | Vacío |
 |---|---|---|---|---|
@@ -87,7 +87,7 @@ En las otras secciones de la app, los KPI `Clientes analizados` (conteo) y `Tasa
 | "No aplica" | **Ausencia por no aplicabilidad**, distinta de desconocido. | No se ha confirmado que sea un código usado por este CSV. No se transforma de forma automática: primero se necesita la definición del proveedor. |
 | `8.99 ERROR` en `monthly_fee` | Texto inválido en columna numérica. | Error bloqueante, evita ordenamiento lexicográfico y sumas incorrectas. |
 
-Los CSV del repositorio se leen con tipos explícitos; el control exige numéricos verdaderos (`int64`/`float64`) y falla si hay valores incompatibles. En Streamlit, las tablas incluyen `column_order` y `hide_index=True`, y la columna monetaria utiliza formato numérico **sin cambiar su dtype**.
+Los CSV del repositorio se leen con tipos explícitos; el control exige numéricos verdaderos (`int64`/`float64`) y falla si hay valores incompatibles. La tabla de segmentos en app.py raíz declara `column_order`, `hide_index=True` y procedencia. Esto no acredita todas las tablas ni una página de calidad. El contrato convierte numéricos antes de validarlos en CI; la app conserva su validador reducido.
 
 ### 6. Reglas bloqueantes y reglas sujetas a criterio
 
@@ -100,3 +100,7 @@ Los CSV del repositorio se leen con tipos explícitos; el control exige numéric
 - `README.md`, `app.py`, `scripts/data_pipeline.py` y datos originales, repositorio `RICK1130042/Netflix_clasificadores` (consulta de `main`, 15-nov-2026).
 - `Netflix Abandono.pdf`, pp. 2–10 (resultados Random Forest y capturas SAS).
 - `python scripts/validar_contrato.py`: falla con salida 1 si se rompe este contrato.
+
+## Auditoría ejecutable 26-nov-2026
+
+La página de Calidad del dato descrita arriba no está integrada en app.py raíz. Los comandos se ejecutan ahora desde la raíz con validacion_datos.py y scripts/validar_contrato.py; no existe validar_exportaciones.py. El contrato rechaza 10 valores avg_watch_time_per_day superiores a 24, tanto en fuente como preparado. No se alteran datos ni límites para obtener verde. Detalles y responsabilidades pendientes: ../docs/auditoria-entrega.md y ../docs/observaciones-21-oct.md.
